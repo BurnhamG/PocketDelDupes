@@ -47,9 +47,11 @@ for item in items_list[0]['list']:
         varQuit = 1
 if varQuit == 1:
     print('There were some articles with bad URLs.')
-    print('The program will print the list of bad items and then exit.')
+    print('The program will save the list of bad items and then exit.')
     print('Please press enter to proceed.')
     input()
+    with open('BadItems.txt') as file:
+        file.write(bad_list)
     print(bad_list)
     sys.exit()
 
@@ -73,7 +75,7 @@ for item in items_list[0]['list']:
     article_url = filterurl(article_url, '?utm')
     article_url = filterurl(article_url, '?roi')
 
-    #article_url = filterurl(article_url, '#')
+    # article_url = filterurl(article_url, '#')
 
     masterdict[article_id] = article_url
 
