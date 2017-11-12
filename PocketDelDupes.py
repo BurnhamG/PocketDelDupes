@@ -94,7 +94,7 @@ for k, v in masterdict.items():
         deleteCount += 1
         pocket_instance.delete(str(k), wait=False)
 
-print(deleteCount + 'items were deleted.')
+print(str(deleteCount) + 'items were deleted.')
 print('There are now ' + str(len(filtereddict)) +
         " unique articles in your Pocket list.")
 
