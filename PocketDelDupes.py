@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from pocket import Pocket
+# Site here: https://github.com/tapanpandita/pocket
 import webbrowser, sys
 
 # Get consumer key from cmd line
@@ -35,12 +36,13 @@ print('Got authenticated request token - ' + request_token)
 pocket_instance = Pocket(consumer_key, access_token)
 
 # Retrieve list items
-items_list = pocket_instance.get(count=15000)
+items_list = pocket_instance.get(count=15000, detailType='complete')
 varQuit = 0
-for item in items_list[0]['list']:
+full_list = items_list[0]['list']
+
+for item in full_list:
     try:
-        test = items_list[0]['list'][item]['resolved_url']
-        print(test)
+        test = full_list[item]['resolved_url']
     except Exception as e:
         bad_list = []
         bad_list.append('https://getpocket.com/a/read/' + item)
@@ -55,6 +57,7 @@ if varQuit == 1:
     print(bad_list)
     sys.exit()
 
+
 def filterurl(url, char):
     ''' Function to prune off extra URL options '''
     try:
@@ -66,10 +69,16 @@ def filterurl(url, char):
 # with only the ID and URL properties.
 # It will also strip all of the extra social media crap from each URL.
 masterdict = {}
+list_art_tags = []
 
-for item in items_list[0]['list']:
-    article_id = items_list[0]['list'][item]['item_id']
-    article_url = items_list[0]['list'][item]['resolved_url']
+for item in full_list:
+    article_id = full_list[item]['item_id']
+    article_url = full_list[item]['resolved_url']
+    word_count = full_list[item]['word_count']
+    try:
+        article_tags = full_list[item]['tags'].keys()
+    except:
+        article_tags = 'Untagged'
 
     # Remove extra crap from URLS (DANGEROUS - don't remove too much!)
     article_url = filterurl(article_url, '?utm')
@@ -78,8 +87,12 @@ for item in items_list[0]['list']:
     # article_url = filterurl(article_url, '#')
 
     masterdict[article_id] = article_url
+    if article_tags != 'Untagged':
+        for t in list(article_tags):
+            list_art_tags.append(t)
+        print(article_url, word_count, list(article_tags))
 
-print(str(len(masterdict)) + " total articles in your Pocket list.\n")
+print('\n' + str(len(masterdict)) + " total articles in your Pocket list.\n")
 
 # This dictionary will hold only unique entries
 filtereddict = {}
@@ -98,4 +111,26 @@ print(str(deleteCount) + ' items were deleted.')
 print('There are now ' + str(len(filtereddict)) +
         " unique articles in your Pocket list.")
 
+print()
+list_tags = input('Would you like to list only the tags? (y/n) ')
+if list_tags.lower() == 'y':
+    print(sorted(set(list_art_tags)))
+
+edit_tags = input('Do you wish to remove all tags? (y/n) ')
+if edit_tags == 'y':
+    for item in full_list:
+        pocket_instance.tags_clear(full_list[item]['item_id'])
 print("Done!")
+
+
+
+send_action_list = []
+for item in full_list:
+#    send_action_list.append({
+#                            "action" : "tags_clear",
+#                            "item_id" : int(full_list[item]["item_id"]),
+#                            })
+#
+    pocket_instance.tags_clear(full_list[item]["item_id"])
+#pocket_instance.send(send_action_list)
+pocket_instance.commit()
