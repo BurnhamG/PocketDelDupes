@@ -2,7 +2,8 @@
 
 from pocket import Pocket
 # Site here: https://github.com/tapanpandita/pocket
-import webbrowser, sys
+import webbrowser
+import sys
 
 # Get consumer key from cmd line
 consumer_key = sys.argv[1]
@@ -52,8 +53,8 @@ if varQuit == 1:
     print('The program will save the list of bad items and then exit.')
     print('Please press enter to proceed.')
     input()
-    with open('BadItems.txt') as file:
-        file.write(bad_list)
+    with open('BadItems.txt') as bad:
+        bad.write(bad_list)
     print(bad_list)
     sys.exit()
 
@@ -77,7 +78,7 @@ for item in full_list:
     word_count = full_list[item]['word_count']
     try:
         article_tags = full_list[item]['tags'].keys()
-    except:
+    except KeyError:
         article_tags = 'Untagged'
 
     # Remove extra crap from URLS (DANGEROUS - don't remove too much!)
