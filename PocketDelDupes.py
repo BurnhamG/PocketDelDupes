@@ -4,6 +4,7 @@ from pocket import Pocket
 # Site here: https://github.com/tapanpandita/pocket
 import webbrowser
 import sys
+import os
 
 # Get consumer key from cmd line
 consumer_key = sys.argv[1]
@@ -68,7 +69,7 @@ def filterurl(url, char):
 
 # This dictionary is a straight copy of the data from Pocket, but
 # with only the ID and URL properties.
-# It will also strip all of the extra social media crap from each URL.
+# It will also strip all of the extra social media info from each URL.
 masterdict = {}
 list_art_tags = []
 
@@ -76,6 +77,7 @@ for item in full_list:
     article_id = full_list[item]['item_id']
     article_url = full_list[item]['resolved_url']
     word_count = full_list[item]['word_count']
+    reverse_lookup = {article_url: article_id}
     try:
         article_tags = full_list[item]['tags'].keys()
     except KeyError:
@@ -112,8 +114,78 @@ print(str(deleteCount) + ' items were deleted.')
 print('There are now ' + str(len(filtereddict)) +
         " unique articles in your Pocket list.")
 
+
+def items_to_manipulate():
+    items = input("What are the items? " +
+                        "Separate URLs or IDs with a comma," +
+                        " or provide the path of a text file with each item " +
+                        "on a separate line. ")
+    manip = []
+    if items[-4:].lower() == '.txt':
+        try:
+            with open(os.path.normcase(items), "r", encoding='utf-8') as al:
+                manip.append(line.rstrip() for line in al)
+        except IOError:
+            print("That file does not exist.")
+            try_again = input("Would you like to try again? (y/n)").lower()
+            if try_again == 'n':
+                return
+            else:
+                return [-1]
+    else:
+        manip = items.split(',')
+    return manip
+
+
+def add_items():
+    """Allows adding items to the list"""
+    while True:
+        add_list = items_to_manipulate()
+        if not add_list():
+            break
+        elif add_list[0] != -1:
+            if len(add_list) == 1:
+                pocket_instance.add(add_list[0])
+            else:
+                for item in add_list:
+                    if "." in item:
+                        pocket_instance.bulk_add(url=item)
+                    else:
+                        pocket_instance.bulk_add(item)
+                break
+            pocket_instance.commit()
+            break
+
+
+def delete_items():
+    """Allows removing items from the list"""
+    while True:
+        delete_list = items_to_manipulate()
+        if not delete_list():
+            break
+        elif delete_list[0] != -1:
+            for item in delete_list:
+                if "." in item:
+                    try:
+                        pocket_instance.delete(reverse_lookup[item])
+                    except KeyError:
+                        print(str(item) +
+                                " was not found in the list. " +
+                                "Nothing related to this item will be modified.")
+                else:
+                    pocket_instance.delete(item)
+            pocket_instance.commit()
+            break
+
+
+def view_items():
+    pass
+
+
+def tags_editing():
+    """Allows editing of the tags."""
 print()
-list_tags = input('Would you like to list only the tags? (y/n) ')
+    list_tags = input('Would you like to list all the tags? (y/n) ')
 if list_tags.lower() == 'y':
     print(sorted(set(list_art_tags)))
 
@@ -121,17 +193,21 @@ edit_tags = input('Do you wish to remove all tags? (y/n) ')
 if edit_tags == 'y':
     for item in full_list:
         pocket_instance.tags_clear(full_list[item]['item_id'])
+        pocket_instance.commit()
 print("Done!")
 
 
+options = {"add": add_items(),
+            "delete": delete_items(),
+            "view": view_items(),
+            "tags": tags_editing(),
+            }
 
-send_action_list = []
-for item in full_list:
-#    send_action_list.append({
-#                            "action" : "tags_clear",
-#                            "item_id" : int(full_list[item]["item_id"]),
-#                            })
-#
-    pocket_instance.tags_clear(full_list[item]["item_id"])
-#pocket_instance.send(send_action_list)
-pocket_instance.commit()
+while True:
+    choice = input("What would you like to do? (Add/Delete/View/Tags/Exit) ").lower()
+    if choice.lower() == "exit":
+        break
+    else:
+        options[choice]
+        if not options[choice]:
+            break
