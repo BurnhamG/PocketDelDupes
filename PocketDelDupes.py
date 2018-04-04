@@ -116,6 +116,7 @@ print('There are now ' + str(len(filtereddict)) +
 
 
 def items_to_manipulate():
+    """Gets the list of items to act on."""
     items = input("What are the items? " +
                         "Separate URLs or IDs with a comma," +
                         " or provide the path of a text file with each item " +
@@ -179,22 +180,46 @@ def delete_items():
 
 
 def view_items():
-    pass
+    """Allows the user to view information about their list items."""
+    direction = ""
+    sort_order = input("How would you like to sort the articles (Name/Date/Length)? ").lower()
+    if sort_order == 'name':
+        while not direction:
+            # Make this a separate function using string formatting for the different cases
+            direction = input("How would you like to sort the names (Forward/Backward)? ").lower()
+            if direction == 'backward':
+                sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list], reverse=True)
+            elif direction == 'forward':
+                sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list])
+            else:
+                direction = ''
+                print("That is not a valid input. Please try again.")
+
+        chunk = input("How many articles would you like to view at a time (Number/All)? ").lower()
+
+        if chunk != 'all':
+            for counter in range(int(chunk)):
+                print(sorted_names[counter])
+        else:
+            for item in sorted_names:
+                print(item)
+    elif sort_order == 'date':
+        direction = input("How would you like to sort the dates (OTN/NTO)? ").lower()
 
 
 def tags_editing():
     """Allows editing of the tags."""
-print()
+    print()
     list_tags = input('Would you like to list all the tags? (y/n) ')
-if list_tags.lower() == 'y':
-    print(sorted(set(list_art_tags)))
+    if list_tags.lower() == 'y':
+        print(sorted(set(list_art_tags)))
 
-edit_tags = input('Do you wish to remove all tags? (y/n) ')
-if edit_tags == 'y':
-    for item in full_list:
-        pocket_instance.tags_clear(full_list[item]['item_id'])
-        pocket_instance.commit()
-print("Done!")
+    edit_tags = input('Do you wish to remove all tags? (y/n) ')
+    if edit_tags == 'y':
+        for item in full_list:
+            pocket_instance.tags_clear(full_list[item]['item_id'])
+    pocket_instance.commit()
+    print("Done!")
 
 
 options = {"add": add_items(),
