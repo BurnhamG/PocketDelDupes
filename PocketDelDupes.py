@@ -138,6 +138,18 @@ def items_to_manipulate():
     return manip
 
 
+def sort_direction(items):
+    direction = input(f"How would you like to sort the {items} (Forward/Backward)? ").lower()
+    if direction == 'backward':
+        sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list], reverse=True)
+    elif direction == 'forward':
+        sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list])
+    else:
+        direction = ''
+        print("That is not a valid input. Please try again.")
+    return direction
+
+
 def add_items():
     """Allows adding items to the list"""
     while True:
@@ -185,15 +197,7 @@ def view_items():
     sort_order = input("How would you like to sort the articles (Name/Date/Length)? ").lower()
     if sort_order == 'name':
         while not direction:
-            # Make this a separate function using string formatting for the different cases
-            direction = input("How would you like to sort the names (Forward/Backward)? ").lower()
-            if direction == 'backward':
-                sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list], reverse=True)
-            elif direction == 'forward':
-                sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list])
-            else:
-                direction = ''
-                print("That is not a valid input. Please try again.")
+            direction = sort_direction('names')
 
         chunk = input("How many articles would you like to view at a time (Number/All)? ").lower()
 
