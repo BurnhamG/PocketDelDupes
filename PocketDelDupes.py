@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-from pocket import Pocket
 # Site here: https://github.com/tapanpandita/pocket
+from pocket import Pocket
+from operator import itemgetter
 import webbrowser
 import sys
 import os
+import datetime
 
 # Get consumer key from cmd line
 consumer_key = sys.argv[1]
@@ -138,16 +140,42 @@ def items_to_manipulate():
     return manip
 
 
-def sort_direction(items):
-    direction = input(f"How would you like to sort the {items} (Forward/Backward)? ").lower()
-    if direction == 'backward':
-        sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list], reverse=True)
-    elif direction == 'forward':
-        sorted_names = sorted([full_list[item]['resolved_name'] for item in full_list])
-    else:
-        direction = ''
-        print("That is not a valid input. Please try again.")
-    return direction
+def sort_items(input_options):
+    direction = ""
+    key_list = {'name': 'resolved_title',
+                'date': 'time_added',
+                'length': 'word_count',
+                'url': 'resolved_url'}
+    while not direction:
+        direction = input("How would you like to sort the articles (Forward/Backward)? ").lower()
+        if direction == 'backward':
+            return sorted([full_list[item] for item in full_list], key=itemgetter(key_list[input_options]), reverse=True)
+        elif direction == 'forward':
+            return sorted([full_list[item] for item in full_list], key=itemgetter(key_list[input_options]))
+        else:
+            direction = ''
+            print("That is not a valid input. Please try again.")
+
+
+def display_items(account_articles):
+    articles_displayed = ''
+    view_url = ''
+    while not view_url:
+        view_url = input("Do you wish to view the URL with the article information (y/n, default n)?").lower()
+        if view_url == '':
+            view_url = 'n'
+        if not view_url in ['y', 'n']:
+            view_url = ''
+    while not articles_displayed:
+        articles_displayed = input("How many articles would you like to view at once? Type \"all\" to view all articles. ")
+        if articles_displayed == 'all':
+            for art in account_articles:
+                print(f"{account_articles[art]['resolved_title']}, added {datetime.datetime.fromtimestamp(account_articles[art]['time_added'])}, with {account_articles[art]['word_count']} words: {account_articles[art]['resolved_url'] if view_url == 'y'}")
+        elif articles_displayed != '':
+            for counter in range(articles_displayed):
+                print(f"{account_articles[counter]['resolved_title']}, added {datetime.datetime.fromtimestamp(account_articles[counter]['time_added'])}, with {account_articles[counter]['word_count']} words: {account_articles[counter]['resolved_url'] if view_url == 'y'}")
+        else:
+            print("That is not a valid answer, please try again.")
 
 
 def add_items():
@@ -193,22 +221,9 @@ def delete_items():
 
 def view_items():
     """Allows the user to view information about their list items."""
-    direction = ""
-    sort_order = input("How would you like to sort the articles (Name/Date/Length)? ").lower()
-    if sort_order == 'name':
-        while not direction:
-            direction = sort_direction('names')
+    sort_order = input("How would you like to sort the articles (Name/Date/Length/URL)? ").lower()
+    sorted_names = sort_and_display_items(sort_order)
 
-        chunk = input("How many articles would you like to view at a time (Number/All)? ").lower()
-
-        if chunk != 'all':
-            for counter in range(int(chunk)):
-                print(sorted_names[counter])
-        else:
-            for item in sorted_names:
-                print(item)
-    elif sort_order == 'date':
-        direction = input("How would you like to sort the dates (OTN/NTO)? ").lower()
 
 
 def tags_editing():
