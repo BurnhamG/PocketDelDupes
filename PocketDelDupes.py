@@ -73,13 +73,13 @@ def filterurl(url, char):
 # with only the ID and URL properties.
 # It will also strip all of the extra social media info from each URL.
 masterdict = {}
+url_id_dict = {}
 list_art_tags = []
 
 for item in full_list:
     article_id = full_list[item]['item_id']
     article_url = full_list[item]['resolved_url']
     word_count = full_list[item]['word_count']
-    reverse_lookup = {article_url: article_id}
     try:
         article_tags = full_list[item]['tags'].keys()
     except KeyError:
@@ -90,7 +90,7 @@ for item in full_list:
     article_url = filterurl(article_url, '?roi')
 
     # article_url = filterurl(article_url, '#')
-
+    url_id_dict[article_id] = article_url
     masterdict[article_id] = article_url
     if article_tags != 'Untagged':
         for t in list(article_tags):
@@ -190,9 +190,9 @@ def add_items():
             else:
                 for item in add_list:
                     if "." in item:
-                        pocket_instance.bulk_add(url=item)
+                        pocket_instance.add(item)
                     else:
-                        pocket_instance.bulk_add(item)
+                        print("This is not a valid URL, the item will be disregarded.")
                 break
             pocket_instance.commit()
             break
@@ -208,7 +208,7 @@ def delete_items():
             for item in delete_list:
                 if "." in item:
                     try:
-                        pocket_instance.delete(reverse_lookup[item])
+                        pocket_instance.delete([id for id, u in url_id_dict.items() if u == item])
                     except KeyError:
                         print(str(item) +
                                 " was not found in the list. " +
