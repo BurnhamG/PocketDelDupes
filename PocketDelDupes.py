@@ -69,6 +69,7 @@ def filterurl(url, char):
     except ValueError:
         return url
 
+
 # This dictionary is a straight copy of the data from Pocket, but
 # with only the ID and URL properties.
 # It will also strip all of the extra social media info from each URL.
@@ -105,7 +106,7 @@ filtereddict = {}
 # This loop will find the duplicate URLs and delete them from the list
 deleteCount = 0
 for k, v in masterdict.items():
-    if not v in list(filtereddict.values()):
+    if v not in list(filtereddict.values()):
         filtereddict[k] = v
     else:
         print("Removing duplicate: " + v)
@@ -114,15 +115,15 @@ for k, v in masterdict.items():
 
 print(str(deleteCount) + ' items were deleted.')
 print('There are now ' + str(len(filtereddict)) +
-        " unique articles in your Pocket list.")
+      " unique articles in your Pocket list.")
 
 
 def items_to_manipulate():
     """Gets the list of items to act on."""
     items = input("What are the items? " +
-                        "Separate URLs or IDs with a comma," +
-                        " or provide the path of a text file with each item " +
-                        "on a separate line. ")
+                  "Separate URLs or IDs with a comma," +
+                  " or provide the path of a text file with each item " +
+                  "on a separate line. ")
     manip = []
     if items[-4:].lower() == '.txt':
         try:
@@ -147,35 +148,56 @@ def sort_items(input_options):
                 'length': 'word_count',
                 'url': 'resolved_url'}
     while not direction:
-        direction = input("How would you like to sort the articles (Forward/Backward)? ").lower()
+        direction = input("How would you like to sort the articles "
+                          "(Forward/Backward)? )".lower())
         if direction == 'backward':
-            return sorted([full_list[item] for item in full_list], key=itemgetter(key_list[input_options]), reverse=True)
+            return sorted([full_list[item] for item in full_list],
+                          key=itemgetter(key_list[input_options]),
+                          reverse=True)
         elif direction == 'forward':
-            return sorted([full_list[item] for item in full_list], key=itemgetter(key_list[input_options]))
+            return sorted([full_list[item] for item in full_list],
+                          key=itemgetter(key_list[input_options]))
         else:
             direction = ''
             print("That is not a valid input. Please try again.")
 
 
-def display_items(account_articles):
-    articles_displayed = ''
-    view_url = ''
-    while not view_url:
-        view_url = input("Do you wish to view the URL with the article information (y/n, default n)?").lower()
-        if view_url == '':
-            view_url = 'n'
-        if not view_url in ['y', 'n']:
-            view_url = ''
-    while not articles_displayed:
-        articles_displayed = input("How many articles would you like to view at once? Type \"all\" to view all articles. ")
-        if articles_displayed == 'all':
-            for art in account_articles:
-                print(f"{account_articles[art]['resolved_title']}, added {datetime.datetime.fromtimestamp(account_articles[art]['time_added'])}, with {account_articles[art]['word_count']} words: {account_articles[art]['resolved_url'] if view_url == 'y'}")
-        elif articles_displayed != '':
-            for counter in range(articles_displayed):
-                print(f"{account_articles[counter]['resolved_title']}, added {datetime.datetime.fromtimestamp(account_articles[counter]['time_added'])}, with {account_articles[counter]['word_count']} words: {account_articles[counter]['resolved_url'] if view_url == 'y'}")
-        else:
-            print("That is not a valid answer, please try again.")
+def display_items(acc_arts):
+    art_disp = ''
+    v_url = ''
+    while not v_url:
+        v_url = input("Do you wish to view the URL with the article "
+                      "information (y/n, default n)?").lower()
+        if v_url == '':
+            v_url = 'n'
+        if v_url not in ['y', 'n']:
+            v_url = ''
+    while not art_disp:
+        art_disp = input("How many articles would you like to view "
+                         "at once? Type \"all\" to view all"
+                         " articles. "
+                         )
+        if art_disp == 'all':
+            for art in acc_arts:
+                time_art_added = datetime.datetime.\
+                                    fromtimestamp(acc_arts[art]['time_added'])
+                print(f"{acc_arts[art]['resolved_title']}, added "
+                      f"{time_art_added}, "
+                      f"with {acc_arts[art]['word_count']} words: "
+                      f"{acc_arts[art]['resolved_url'] if v_url == 'y'}")
+        elif art_disp != '':
+            try:
+                art_disp = int(art_disp)
+                for count in range(int(art_disp)):
+                    time_art_added = datetime.datetime.\
+                                fromtimestamp(acc_arts[counter]['time_added'])
+                    print(f"{acc_arts[count]['resolved_title']}, "
+                          f"added {time_art_added}, with "
+                          f"{acc_arts[count]['word_count']} words: "
+                          f"{acc_arts[count]['resolved_url'] if v_url == 'y'}")
+            except ValueError:
+                art_disp = ''
+                print("That is not a valid answer, please try again.")
 
 
 def add_items():
@@ -192,8 +214,8 @@ def add_items():
                     if "." in item:
                         pocket_instance.add(item)
                     else:
-                        print("This is not a valid URL, the item will be disregarded.")
-                break
+                        print("This is not a valid URL, "
+                              "the item will be disregarded.")
             pocket_instance.commit()
             break
 
@@ -208,11 +230,13 @@ def delete_items():
             for item in delete_list:
                 if "." in item:
                     try:
-                        pocket_instance.delete([id for id, u in url_id_dict.items() if u == item])
+                        pocket_instance.delete([id for id, u
+                                                in url_id_dict.items()
+                                                if u == item])
                     except KeyError:
                         print(str(item) +
-                                " was not found in the list. " +
-                                "Nothing related to this item will be modified.")
+                              " was not found in the list. "
+                              "Nothing related to this item will be modified.")
                 else:
                     pocket_instance.delete(item)
             pocket_instance.commit()
@@ -221,9 +245,10 @@ def delete_items():
 
 def view_items():
     """Allows the user to view information about their list items."""
-    sort_order = input("How would you like to sort the articles (Name/Date/Length/URL)? ").lower()
-    sorted_names = sort_and_display_items(sort_order)
-
+    sort_order = input("What would you like to sort by "
+                       "(Name/Date/Length/URL)? ").lower()
+    sorted_names = sort_items(sort_order)
+    display_items(sorted_names)
 
 
 def tags_editing():
@@ -242,16 +267,18 @@ def tags_editing():
 
 
 options = {"add": add_items(),
-            "delete": delete_items(),
-            "view": view_items(),
-            "tags": tags_editing(),
-            }
+           "delete": delete_items(),
+           "view": view_items(),
+           "tags": tags_editing(),
+           }
 
 while True:
-    choice = input("What would you like to do? (Add/Delete/View/Tags/Exit) ").lower()
+    choice = input("What would you like to do "
+                   "(Add/Delete/View/Tags/Exit)? ").lower()
     if choice.lower() == "exit":
         break
     else:
-        options[choice]
-        if not options[choice]:
-            break
+        try:
+            options[choice]
+        except KeyError:
+            print("That is not a valid selection, please try again.")
