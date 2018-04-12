@@ -190,7 +190,7 @@ def display_items(acc_arts):
                 art_disp = int(art_disp)
                 for count in range(int(art_disp)):
                     time_art_added = datetime.datetime.\
-                                fromtimestamp(acc_arts[counter]['time_added'])
+                                fromtimestamp(acc_arts[count]['time_added'])
                     print(f"{acc_arts[count]['resolved_title']}, "
                           f"added {time_art_added}, with "
                           f"{acc_arts[count]['word_count']} words: "
