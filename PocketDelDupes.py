@@ -33,8 +33,8 @@ input()
 
 access_token = Pocket.get_access_token(
     consumer_key=consumer_key,
-    code=request_token,
-)
+    code=request_token,)
+
 print('Got authenticated request token - ' + request_token)
 
 pocket_instance = Pocket(consumer_key, access_token)
@@ -78,7 +78,6 @@ def cleaned_db():
     # It will also strip all of the extra social media info from each URL.
     masterdict = {}
     url_id_dict = {}
-    list_art_tags = []
 
     for item in full_list:
         article_id = full_list[item]['item_id']
@@ -96,16 +95,13 @@ def cleaned_db():
         # article_url = filterurl(article_url, '#')
         url_id_dict[article_id] = article_url
         masterdict[article_id] = article_url
-        if article_tags != 'Untagged':
-            for t in list(article_tags):
-                list_art_tags.append(t)
-            print(article_url, word_count, list(article_tags))
 
     print('\n' + str(len(masterdict)) +
           " total articles in your Pocket list.\n")
+    return masterdict
 
 
-def_del_dupes():
+def_del_dupes(masterdict):
     # This dictionary will hold only unique entries
     filtereddict = {}
 
@@ -262,6 +258,15 @@ def tags_editing():
     print()
     list_tags = input('Would you like to list all the tags? (y/n) ')
     if list_tags.lower() == 'y':
+        list_art_tags = []
+        for item in full_list:
+            try:
+                article_tags = full_list[item]['tags'].keys()
+                for t in list(article_tags):
+                    list_art_tags.append(t)
+            except KeyError:
+                pass
+
         print(sorted(set(list_art_tags)))
 
     edit_tags = input('Do you wish to remove all tags? (y/n) ')
