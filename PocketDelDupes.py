@@ -44,22 +44,24 @@ items_list = pocket_instance.get(count=15000, detailType='complete')
 varQuit = 0
 full_list = items_list[0]['list']
 
-for item in full_list:
-    try:
-        test = full_list[item]['resolved_url']
-    except Exception as e:
-        bad_list = []
-        bad_list.append('https://getpocket.com/a/read/' + item)
-        varQuit = 1
-if varQuit == 1:
-    print('There were some articles with bad URLs.')
-    print('The program will save the list of bad items and then exit.')
-    print('Please press enter to proceed.')
-    input()
-    with open('BadItems.txt') as bad:
-        bad.write(bad_list)
-    print(bad_list)
-    sys.exit()
+
+def test_urls(art_list):
+    for item in art_list:
+        try:
+            test = art_list[item]['resolved_url']
+        except Exception as e:
+            bad_list = []
+            bad_list.append('https://getpocket.com/a/read/' + item)
+            varQuit = 1
+    if varQuit == 1:
+        print('There were some articles with bad URLs.')
+        print('The program will save the list of bad items and then exit.')
+        print('Please press enter to proceed.')
+        input()
+        with open('BadItems.txt') as bad:
+            bad.write(bad_list)
+        print(bad_list)
+        sys.exit()
 
 
 def filterurl(url, char):
@@ -70,52 +72,56 @@ def filterurl(url, char):
         return url
 
 
-# This dictionary is a straight copy of the data from Pocket, but
-# with only the ID and URL properties.
-# It will also strip all of the extra social media info from each URL.
-masterdict = {}
-url_id_dict = {}
-list_art_tags = []
+def cleaned_db():
+    # This dictionary is a straight copy of the data from Pocket, but
+    # with only the ID and URL properties.
+    # It will also strip all of the extra social media info from each URL.
+    masterdict = {}
+    url_id_dict = {}
+    list_art_tags = []
 
-for item in full_list:
-    article_id = full_list[item]['item_id']
-    article_url = full_list[item]['resolved_url']
-    word_count = full_list[item]['word_count']
-    try:
-        article_tags = full_list[item]['tags'].keys()
-    except KeyError:
-        article_tags = 'Untagged'
+    for item in full_list:
+        article_id = full_list[item]['item_id']
+        article_url = full_list[item]['resolved_url']
+        word_count = full_list[item]['word_count']
+        try:
+            article_tags = full_list[item]['tags'].keys()
+        except KeyError:
+            article_tags = 'Untagged'
 
-    # Remove extra crap from URLS (DANGEROUS - don't remove too much!)
-    article_url = filterurl(article_url, '?utm')
-    article_url = filterurl(article_url, '?roi')
+        # Remove extra crap from URLS (DANGEROUS - don't remove too much!)
+        article_url = filterurl(article_url, '?utm')
+        article_url = filterurl(article_url, '?roi')
 
-    # article_url = filterurl(article_url, '#')
-    url_id_dict[article_id] = article_url
-    masterdict[article_id] = article_url
-    if article_tags != 'Untagged':
-        for t in list(article_tags):
-            list_art_tags.append(t)
-        print(article_url, word_count, list(article_tags))
+        # article_url = filterurl(article_url, '#')
+        url_id_dict[article_id] = article_url
+        masterdict[article_id] = article_url
+        if article_tags != 'Untagged':
+            for t in list(article_tags):
+                list_art_tags.append(t)
+            print(article_url, word_count, list(article_tags))
 
-print('\n' + str(len(masterdict)) + " total articles in your Pocket list.\n")
+    print('\n' + str(len(masterdict)) +
+          " total articles in your Pocket list.\n")
 
-# This dictionary will hold only unique entries
-filtereddict = {}
 
-# This loop will find the duplicate URLs and delete them from the list
-deleteCount = 0
-for k, v in masterdict.items():
-    if v not in list(filtereddict.values()):
-        filtereddict[k] = v
-    else:
-        print("Removing duplicate: " + v)
-        deleteCount += 1
-        pocket_instance.delete(str(k), wait=False)
+def_del_dupes():
+    # This dictionary will hold only unique entries
+    filtereddict = {}
 
-print(str(deleteCount) + ' items were deleted.')
-print('There are now ' + str(len(filtereddict)) +
-      " unique articles in your Pocket list.")
+    # This loop will find the duplicate URLs and delete them from the list
+    deleteCount = 0
+    for k, v in masterdict.items():
+        if v not in list(filtereddict.values()):
+            filtereddict[k] = v
+        else:
+            print("Removing duplicate: " + v)
+            deleteCount += 1
+            pocket_instance.delete(str(k), wait=False)
+
+    print(str(deleteCount) + ' items were deleted.')
+    print('There are now ' + str(len(filtereddict)) +
+          " unique articles in your Pocket list.")
 
 
 def items_to_manipulate():
