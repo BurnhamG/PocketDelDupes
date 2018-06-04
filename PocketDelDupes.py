@@ -1,99 +1,124 @@
 #!/usr/bin/env python
 
+import datetime
+import os
+import sys
+import webbrowser
+from operator import itemgetter
+
 # Site here: https://github.com/tapanpandita/pocket
 from pocket import Pocket
-from operator import itemgetter
-import webbrowser
-import sys
-import os
-import datetime
-
-# Get consumer key from cmd line
-consumer_key = sys.argv[1]
-
-request_token = Pocket.get_request_token(
-    consumer_key=consumer_key,
-    redirect_uri='http://ddg.gg',
-)
-auth_url = Pocket.get_auth_url(
-    code=request_token,
-    redirect_uri='http://ddg.gg',
-)
-
-print('------ ')
-print('Now opening a browser tab to authenticate with Pocket')
-print('When finished, press ENTER here...')
-print('------ ')
-
-# Open web browser tab to authenticate with Pocket
-webbrowser.open_new_tab(auth_url)
-
-# Wait for user to hit ENTER before proceeding
-input()
-
-access_token = Pocket.get_access_token(
-    consumer_key=consumer_key,
-    code=request_token,)
-
-print('Got authenticated request token - ' + request_token)
-
-pocket_instance = Pocket(consumer_key, access_token)
-
-# Retrieve list items
-items_list = pocket_instance.get(count=15000, detailType='complete')
-varQuit = 0
-full_list = items_list[0]['list']
 
 
-def test_urls(art_list):
+def pocket_authenticate():
+    # Get consumer key from cmd line
+    con_key = sys.argv[1]
+
+    request_token = Pocket.get_request_token(
+        consumer_key=con_key,
+        redirect_uri='http://ddg.gg',
+    )
+    auth_url = Pocket.get_auth_url(
+        code=request_token,
+        redirect_uri='http://ddg.gg',
+    )
+
+    print('------ ')
+    print('Now opening a browser tab to authenticate with Pocket')
+    print('When finished, press ENTER here...')
+    print('------ ')
+
+    # Open web browser tab to authenticate with Pocket
+    webbrowser.open_new_tab(auth_url)
+
+    # Wait for user to hit ENTER before proceeding
+    input()
+
+    access_token = Pocket.get_access_token(
+        consumer_key=con_key,
+        code=request_token, )
+
+    print('Got authenticated request token - ' + request_token)
+
+    instance = Pocket(con_key, access_token)
+    return instance
+
+
+def output_bad(list_of_bad, save_bad=False, print_bad=False):
+    if save_bad:
+        with open('BadItems.txt') as bad:
+            bad.writelines(list_of_bad)
+    if print_bad:
+        for item in list_of_bad:
+            print(item)
+
+
+def url_test(art_list):
+    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
+    var_error = 0
+    bad_list = []
+    option = ''
+    to_print = False
+    to_save = False
+    processing_options = ['b', 'n', 'p', 's']
     for item in art_list:
         try:
-            test = art_list[item]['resolved_url']
-        except Exception as e:
-            bad_list = []
+            art_list[item]['resolved_url']
+        except KeyError:
             bad_list.append('https://getpocket.com/a/read/' + item)
-            varQuit = 1
-    if varQuit == 1:
+            var_error = 1
+    if var_error == 1:
         print('There were some articles with bad URLs.')
-        print('The program will save the list of bad items and then exit.')
-        print('Please press enter to proceed.')
-        input()
-        with open('BadItems.txt') as bad:
-            bad.write(bad_list)
-        print(bad_list)
-        sys.exit()
+        while not option:
+            print('Would you like the bad URLs [p]rinted on screen, [s]aved to a file, [n]either, or [b]oth?')
+            option = input('Leave empty to exit the program: ')
+            if option == '':
+                exit_strategy()
+            elif option not in processing_options:
+                print('That is not a valid option, please try again')
+                option = ''
+            elif option == 'n':
+                break
+            elif option == 'p':
+                to_print = True
+            elif option == 's':
+                to_save = True
+            elif option == 'b':
+                to_print = to_save = True
+        output_bad(art_list, save_bad=to_save, print_bad=to_print)
 
 
 def filterurl(url, char):
-    ''' Function to prune off extra URL options '''
+    """ Function to prune off extra URL options """
     try:
         return url[:url.index(char)]
     except ValueError:
         return url
 
 
-def cleaned_db():
+def clean_db(raw_article_list):
     # This dictionary is a straight copy of the data from Pocket, but
     # with only the ID and URL properties.
     # It will also strip all of the extra social media info from each URL.
     masterdict = {}
-    url_id_dict = {}
+    # url_id_dict = {}
 
-    for item in full_list:
-        article_id = full_list[item]['item_id']
-        article_url = full_list[item]['resolved_url']
-        word_count = full_list[item]['word_count']
-        try:
-            article_tags = full_list[item]['tags'].keys()
-        except KeyError:
-            article_tags = 'Untagged'
+    for item in raw_article_list:
+        article_id = raw_article_list[item]['item_id']
+        article_url = raw_article_list[item]['resolved_url']
+        # word_count = raw_article_list[item]['word_count']
+        # try:
+        #     article_tags = raw_article_list[item]['tags'].keys()
+        # except KeyError:
+        #     article_tags = 'Untagged'
 
-        # Remove extra crap from URLS (DANGEROUS - don't remove too much!)
+        # Remove extra junk from URLS (DANGEROUS - don't remove too much!)
         article_url = filterurl(article_url, '?utm')
         article_url = filterurl(article_url, '?roi')
+        article_url = filterurl(article_url, '?mc')
 
         # article_url = filterurl(article_url, '#')
-        url_id_dict[article_id] = article_url
+        # url_id_dict[article_id] = article_url
         masterdict[article_id] = article_url
 
     print('\n' + str(len(masterdict)) +
@@ -101,23 +126,24 @@ def cleaned_db():
     return masterdict
 
 
-def_del_dupes(masterdict):
+def del_dupes(masterdict, instance):
     # This dictionary will hold only unique entries
     filtereddict = {}
 
     # This loop will find the duplicate URLs and delete them from the list
-    deleteCount = 0
+    delete_count = 0
     for k, v in masterdict.items():
         if v not in list(filtereddict.values()):
             filtereddict[k] = v
         else:
             print("Removing duplicate: " + v)
-            deleteCount += 1
-            pocket_instance.delete(str(k), wait=False)
+            delete_count += 1
+            instance.delete(str(k), wait=False)
 
-    print(str(deleteCount) + ' items were deleted.')
+    print(str(delete_count) + ' items were deleted.')
     print('There are now ' + str(len(filtereddict)) +
           " unique articles in your Pocket list.")
+    return filtereddict
 
 
 def items_to_manipulate():
@@ -143,7 +169,7 @@ def items_to_manipulate():
     return manip
 
 
-def sort_items(input_options):
+def sort_items(dict_of_articles, input_options):
     direction = ""
     key_list = {'name': 'resolved_title',
                 'date': 'time_added',
@@ -151,20 +177,36 @@ def sort_items(input_options):
                 'url': 'resolved_url'}
     while not direction:
         direction = input("How would you like to sort the articles "
-                          "(Forward/Backward)? )".lower())
-        if direction == 'backward':
-            return sorted([full_list[item] for item in full_list],
+                          "([F]orward/[B]ackward)? )".lower())
+        if direction == 'b':
+            return sorted([dict_of_articles[item] for item in dict_of_articles],
                           key=itemgetter(key_list[input_options]),
                           reverse=True)
-        elif direction == 'forward':
-            return sorted([full_list[item] for item in full_list],
+        elif direction == 'f':
+            return sorted([dict_of_articles[item] for item in dict_of_articles],
                           key=itemgetter(key_list[input_options]))
         else:
             direction = ''
             print("That is not a valid input. Please try again.")
 
 
-def display_items(acc_arts):
+def print_items_info(articles, count, v_url='n'):
+    time_art_added = datetime.datetime. \
+        fromtimestamp(articles[count]['time_added'])
+    if v_url == 'y':
+        output_end = f"URL is {articles[count]['resolved_url']}."
+    else:
+        output_end = ''
+    print(f"{articles[count]['resolved_title']}, added {time_art_added}, with "
+          f"{articles[count]['word_count']} words. {output_end}")
+
+
+def exit_strategy():
+    print('Goodbye!')
+    raise SystemExit
+
+
+def display_items(articles_in_account):
     art_disp = ''
     v_url = ''
     while not v_url:
@@ -173,6 +215,7 @@ def display_items(acc_arts):
         if v_url == '':
             v_url = 'n'
         if v_url not in ['y', 'n']:
+            print('That was not a valid input, please try again.')
             v_url = ''
     while not art_disp:
         art_disp = input("How many articles would you like to view "
@@ -180,80 +223,70 @@ def display_items(acc_arts):
                          " articles. "
                          )
         if art_disp == 'all':
-            for art in acc_arts:
-                time_art_added = datetime.datetime.\
-                                    fromtimestamp(acc_arts[art]['time_added'])
-                print(f"{acc_arts[art]['resolved_title']}, added "
-                      f"{time_art_added}, "
-                      f"with {acc_arts[art]['word_count']} words: "
-                      f"{acc_arts[art]['resolved_url'] if v_url == 'y'}")
+            for art in articles_in_account:
+                print_items_info(articles_in_account, art, v_url)
         elif art_disp != '':
             try:
                 art_disp = int(art_disp)
                 for count in range(int(art_disp)):
-                    time_art_added = datetime.datetime.\
-                                fromtimestamp(acc_arts[count]['time_added'])
-                    print(f"{acc_arts[count]['resolved_title']}, "
-                          f"added {time_art_added}, with "
-                          f"{acc_arts[count]['word_count']} words: "
-                          f"{acc_arts[count]['resolved_url'] if v_url == 'y'}")
+                    print_items_info(articles_in_account, count, v_url)
             except ValueError:
                 art_disp = ''
                 print("That is not a valid answer, please try again.")
 
 
-def add_items():
+def add_items(instance):
     """Allows adding items to the list"""
     while True:
         add_list = items_to_manipulate()
-        if not add_list():
+        if not add_list:
             break
         elif add_list[0] != -1:
             if len(add_list) == 1:
-                pocket_instance.add(add_list[0])
+                instance.add(add_list[0])
             else:
                 for item in add_list:
                     if "." in item:
-                        pocket_instance.add(item)
+                        instance.add(item)
                     else:
                         print("This is not a valid URL, "
                               "the item will be disregarded.")
-            pocket_instance.commit()
+            instance.commit()
             break
 
 
-def delete_items():
+def delete_items(instance, id_url_dict):
     """Allows removing items from the list"""
     while True:
         delete_list = items_to_manipulate()
-        if not delete_list():
+        if not delete_list:
             break
         elif delete_list[0] != -1:
             for item in delete_list:
                 if "." in item:
                     try:
-                        pocket_instance.delete([id for id, u
-                                                in url_id_dict.items()
-                                                if u == item])
+                        instance.delete([aid for aid, u
+                                         in id_url_dict.items()
+                                         if u == item])
                     except KeyError:
                         print(str(item) +
                               " was not found in the list. "
                               "Nothing related to this item will be modified.")
                 else:
-                    pocket_instance.delete(item)
-            pocket_instance.commit()
+                    instance.delete(item)
+            instance.commit()
             break
 
 
-def view_items():
+def view_items(art_dict):
     """Allows the user to view information about their list items."""
     sort_order = input("What would you like to sort by "
                        "(Name/Date/Length/URL)? ").lower()
-    sorted_names = sort_items(sort_order)
+    sorted_names = sort_items(art_dict, sort_order)
     display_items(sorted_names)
 
 
-def tags_editing():
+def tags_editing(instance, full_list):
     """Allows editing of the tags."""
     print()
     list_tags = input('Would you like to list all the tags? (y/n) ')
@@ -272,24 +305,41 @@ def tags_editing():
     edit_tags = input('Do you wish to remove all tags? (y/n) ')
     if edit_tags == 'y':
         for item in full_list:
-            pocket_instance.tags_clear(full_list[item]['item_id'])
-    pocket_instance.commit()
+            instance.tags_clear(full_list[item]['item_id'])
+    instance.commit()
     print("Done!")
 
 
-options = {"add": add_items(),
-           "delete": delete_items(),
-           "view": view_items(),
-           "tags": tags_editing(),
-           }
+def main():
+    pocket_authenticate()
+    pocket_instance = pocket_authenticate()
+    items_list = pocket_instance.get(count=15000, detailType='complete')
+    full_list = items_list[0]['list']
 
-while True:
-    choice = input("What would you like to do "
-                   "(Add/Delete/View/Tags/Exit)? ").lower()
-    if choice.lower() == "exit":
-        break
-    else:
-        try:
-            options[choice]
-        except KeyError:
-            print("That is not a valid selection, please try again.")
+    url_test(full_list)
+
+    # Clean and parse data
+    master_article_dictionary = clean_db(full_list)
+
+    # Option to check for and delete duplicates
+    check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')
+    if check_dupes.lower() == 'y':
+        master_article_dictionary = (master_article_dictionary, pocket_instance)
+
+    while True:
+        choice = input("What would you like to do "
+                       "([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()
+        if choice == "exit":
+            exit_strategy()
+        elif choice == 'a':
+            add_items(pocket_instance)
+        elif choice == 'd':
+            delete_items(pocket_instance, master_article_dictionary)
+        elif choice == 'v':
+            view_items(master_article_dictionary)
+        elif choice == 't':
+            tags_editing(pocket_instance, master_article_dictionary)
+
+
+if __name__ == '__main__':
+    main()
