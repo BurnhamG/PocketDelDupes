@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
+import argparse
 import datetime
 import os
-import sys
 import webbrowser
 from operator import itemgetter
 
@@ -10,17 +10,20 @@ from operator import itemgetter
 from pocket import Pocket
 
 
-def pocket_authenticate():
-    # Get consumer key from cmd line
-    con_key = sys.argv[1]
+def create_arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("api_key", help="Your api key for Pocket's website.")
+    return parser
 
+
+def pocket_authenticate(con_key):
     request_token = Pocket.get_request_token(
         consumer_key=con_key,
-        redirect_uri='http://ddg.gg',
+        redirect_uri='https://ddg.gg',
     )
     auth_url = Pocket.get_auth_url(
         code=request_token,
-        redirect_uri='http://ddg.gg',
+        redirect_uri='https://ddg.gg',
     )
 
     print('------ ')
@@ -46,7 +49,8 @@ def pocket_authenticate():
 
 def output_bad(list_of_bad, save_bad=False, print_bad=False):
     if save_bad:
-        with open('BadItems.txt') as bad:
+        file_directory = os.path.abspath(os.path.dirname(__file__))
+        with open(os.path.join(file_directory, 'BadItems.txt')) as bad:
             bad.writelines(list_of_bad)
     if print_bad:
         for item in list_of_bad:
@@ -311,8 +315,9 @@ def tags_editing(instance, full_list):
 
 
 def main():
-    pocket_authenticate()
-    pocket_instance = pocket_authenticate()
+    parser = create_arg_parser()
+    args = parser.parse_args()
+    pocket_instance = pocket_authenticate(args.api_key)
     items_list = pocket_instance.get(count=15000, detailType='complete')
     full_list = items_list[0]['list']
 
@@ -324,7 +329,7 @@ def main():
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')
     if check_dupes.lower() == 'y':
-        master_article_dictionary = (master_article_dictionary, pocket_instance)
+        master_article_dictionary = del_dupes(master_article_dictionary, pocket_instance)
 
     while True:
         choice = input("What would you like to do "
