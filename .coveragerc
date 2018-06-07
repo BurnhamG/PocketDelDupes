@@ -1,10 +1,13 @@
 [run]
 branch = True
+include = *PocketDelDupes.py
+
 
 [report]
 exclude_lines =
     pragma: no cover
-    if __name__
+    __name__ ==
+precision = 2
 
 [html]
 directory = coverage_html_report

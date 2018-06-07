@@ -75,7 +75,7 @@ def url_test(art_list):
         print('There were some articles with bad URLs.')
         while not option:
             print('Would you like the bad URLs [p]rinted on screen, [s]aved to a file, [n]either, or [b]oth?')
-            option = input('Leave empty to exit the program: ')
+            option = input('Leave empty to exit the program: ').lower()
             if option == '':
                 exit_strategy()
             elif option not in processing_options:
@@ -89,7 +89,7 @@ def url_test(art_list):
                 to_save = True
             elif option == 'b':
                 to_print = to_save = True
-        output_bad(art_list, save_bad=to_save, print_bad=to_print)
+            output_bad(art_list, save_bad=to_save, print_bad=to_print)
 
 
 def filterurl(url, char):
@@ -107,14 +107,18 @@ def clean_db(raw_article_list):
     masterdict = {}
     # url_id_dict = {}
 
+    print(raw_article_list)
+    # TODO: Restructure this to match raw data style
     for item in raw_article_list:
         article_id = raw_article_list[item]['item_id']
+        article_time = raw_article_list[item]['time_added']
+        article_title = raw_article_list[item]['resolved_title']
         article_url = raw_article_list[item]['resolved_url']
-        # word_count = raw_article_list[item]['word_count']
-        # try:
-        #     article_tags = raw_article_list[item]['tags'].keys()
-        # except KeyError:
-        #     article_tags = 'Untagged'
+        word_count = raw_article_list[item]['word_count']
+        try:
+            article_tags = list(raw_article_list[item]['tags'].keys())
+        except KeyError:
+            article_tags = {}
 
         # Remove extra junk from URLS (DANGEROUS - don't remove too much!)
         article_url = filterurl(article_url, '?utm')
@@ -123,7 +127,12 @@ def clean_db(raw_article_list):
 
         # article_url = filterurl(article_url, '#')
         # url_id_dict[article_id] = article_url
-        masterdict[article_id] = article_url
+        masterdict[article_id] = {}
+        masterdict[article_id]['resolved_url'] = article_url
+        masterdict[article_id]['word_count'] = word_count
+        masterdict[article_id]['tags'] = article_tags
+        masterdict[article_id]['resolved_title'] = article_title
+        masterdict[article_id]['time_added'] = article_time
 
     print('\n' + str(len(masterdict)) +
           " total articles in your Pocket list.\n")
@@ -132,15 +141,17 @@ def clean_db(raw_article_list):
 
 def del_dupes(masterdict, instance):
     # This dictionary will hold only unique entries
+    resolved_urls = []
     filtereddict = {}
 
     # This loop will find the duplicate URLs and delete them from the list
     delete_count = 0
     for k, v in masterdict.items():
-        if v not in list(filtereddict.values()):
+        if v['resolved_url'] not in resolved_urls:
+            resolved_urls.append(v['resolved_url'])
             filtereddict[k] = v
         else:
-            print("Removing duplicate: " + v)
+            print("Removing duplicate: " + v['resolved_url'])
             delete_count += 1
             instance.delete(str(k), wait=False)
 
@@ -163,13 +174,14 @@ def items_to_manipulate():
                 manip.append(line.rstrip() for line in al)
         except IOError:
             print("That file does not exist.")
+            # TODO: Refactor this into a function to replace all the different 'try again' instances
             try_again = input("Would you like to try again? (y/n)").lower()
             if try_again == 'n':
                 return
             else:
                 return [-1]
     else:
-        manip = items.split(',')
+        manip = [x.strip() for x in items.split(',')]
     return manip
 
 
@@ -298,6 +310,7 @@ def tags_editing(instance, full_list):
         list_art_tags = []
         for item in full_list:
             try:
+                print(full_list[item]['tags'])
                 article_tags = full_list[item]['tags'].keys()
                 for t in list(article_tags):
                     list_art_tags.append(t)
@@ -318,7 +331,7 @@ def main():
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
-    items_list = pocket_instance.get(count=15000, detailType='complete')
+    items_list = pocket_instance.get(count=15000, detailType='complete')  # TODO: Change count to 15000 once done
     full_list = items_list[0]['list']
 
     url_test(full_list)
@@ -334,7 +347,7 @@ def main():
     while True:
         choice = input("What would you like to do "
                        "([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()
-        if choice == "exit":
+        if choice == "e":
             exit_strategy()
         elif choice == 'a':
             add_items(pocket_instance)
