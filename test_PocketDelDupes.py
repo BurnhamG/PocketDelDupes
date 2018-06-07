@@ -224,6 +224,35 @@ class PocketConsoleTest(unittest.TestCase):
             test_item_list = PocketDelDupes.items_to_manipulate()
             self.assertEqual(test_item_list, ['12345', '123456'])
 
+            mock_input.reset_mock()
+            mock_input.return_value = 'www.example.com, www.example2.com, www.example3.com/test'
+            test_item_list = PocketDelDupes.items_to_manipulate()
+            self.assertEqual(test_item_list, ['www.example.com', 'www.example2.com', 'www.example3.com/test'])
+
+    def test_try_again(self):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = 'n'
+            self.assertFalse(PocketDelDupes.try_again())
+
+            mock_input.return_value = 'y'
+            self.assertTrue(PocketDelDupes.try_again())
+
+    def test_sort_items(self):
+        with patch('PocketDelDupes.input') as mock_input:
+            for v in {'n': 'resolved_title', 'd': 'time_added', 'l': 'word_count', 'u': 'resolved_url'}.values():
+                mock_input.return_value = 'b'
+                example_return = PocketDelDupes.sort_items(self.example_articles, v)
+                example_articles_sorted = sorted(self.example_articles.items(),
+                                                 key=lambda x: x[1][v],
+                                                 reverse=True)
+                self.assertEqual(example_return, example_articles_sorted)
+
+                mock_input.return_value = 'f'
+                example_return = PocketDelDupes.sort_items(self.example_articles, v)
+                example_articles_sorted = sorted(self.example_articles.items(),
+                                                 key=lambda x: x[1][v])
+                self.assertEqual(example_return, example_articles_sorted)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -4,7 +4,6 @@ import argparse
 import datetime
 import os
 import webbrowser
-from operator import itemgetter
 
 # Site here: https://github.com/tapanpandita/pocket
 from pocket import Pocket
@@ -174,36 +173,45 @@ def items_to_manipulate():
                 manip.append(line.rstrip() for line in al)
         except IOError:
             print("That file does not exist.")
-            # TODO: Refactor this into a function to replace all the different 'try again' instances
-            try_again = input("Would you like to try again? (y/n)").lower()
-            if try_again == 'n':
-                return
+            if try_again():
+                return -1
             else:
-                return [-1]
+                return
     else:
         manip = [x.strip() for x in items.split(',')]
     return manip
 
 
-def sort_items(dict_of_articles, input_options):
+def try_again():
+    decision = ''
+    while decision == '':
+        decision = input("Would you like to try again? (y/n)").lower()
+        if decision == 'n':
+            return False
+        elif decision == 'y':
+            return True
+        else:
+            print('That is not a valid choice.')
+            decision = ''
+
+
+def sort_items(dict_of_articles, sort_category):
     direction = ""
-    key_list = {'name': 'resolved_title',
-                'date': 'time_added',
-                'length': 'word_count',
-                'url': 'resolved_url'}
     while not direction:
         direction = input("How would you like to sort the articles "
                           "([F]orward/[B]ackward)? )".lower())
         if direction == 'b':
-            return sorted([dict_of_articles[item] for item in dict_of_articles],
-                          key=itemgetter(key_list[input_options]),
+            return sorted(dict_of_articles.items(),
+                          key=lambda x: x[1][sort_category],
                           reverse=True)
         elif direction == 'f':
-            return sorted([dict_of_articles[item] for item in dict_of_articles],
-                          key=itemgetter(key_list[input_options]))
+            return sorted(dict_of_articles.items(),
+                          key=lambda x: x[1][sort_category])
         else:
-            direction = ''
-            print("That is not a valid input. Please try again.")
+            if try_again():
+                direction = ''
+            else:
+                break
 
 
 def print_items_info(articles, count, v_url='n'):
@@ -296,9 +304,15 @@ def delete_items(instance, id_url_dict):
 
 def view_items(art_dict):
     """Allows the user to view information about their list items."""
+    key_list = {'n': 'resolved_title',
+                'd': 'time_added',
+                'l': 'word_count',
+                'u': 'resolved_url'}
+
     sort_order = input("What would you like to sort by "
-                       "(Name/Date/Length/URL)? ").lower()
-    sorted_names = sort_items(art_dict, sort_order)
+                       "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
+
+    sorted_names = dict(sort_items(art_dict, key_list[sort_order]))
     display_items(sorted_names)
 
 
