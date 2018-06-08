@@ -214,15 +214,15 @@ def sort_items(dict_of_articles, sort_category):
                 break
 
 
-def print_items_info(articles, count, v_url='n'):
+def print_items_info(all_articles, article, v_url='n'):
     time_art_added = datetime.datetime. \
-        fromtimestamp(articles[count]['time_added'])
+        fromtimestamp(int(all_articles[article]['time_added']))
     if v_url == 'y':
-        output_end = f"URL is {articles[count]['resolved_url']}."
+        output_end = f"URL is {all_articles[article]['resolved_url']}."
     else:
         output_end = ''
-    print(f"{articles[count]['resolved_title']}, added {time_art_added}, with "
-          f"{articles[count]['word_count']} words. {output_end}")
+    print(f"{all_articles[article]['resolved_title']}, added {time_art_added}, with "
+          f"{all_articles[article]['word_count']} words. {output_end}")
 
 
 def exit_strategy():

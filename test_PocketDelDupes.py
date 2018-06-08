@@ -253,6 +253,8 @@ class PocketConsoleTest(unittest.TestCase):
                                                  key=lambda x: x[1][v])
                 self.assertEqual(example_return, example_articles_sorted)
 
+    def test_exit_strategy(self):
+        self.assertRaises(SystemExit, PocketDelDupes.exit_strategy)
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
