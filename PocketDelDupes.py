@@ -230,6 +230,11 @@ def exit_strategy():
     raise SystemExit
 
 
+def article_display_generator(input_dict):
+    for art in input_dict:
+        yield art
+
+
 def display_items(articles_in_account):
     art_disp = ''
     v_url = ''
@@ -241,19 +246,21 @@ def display_items(articles_in_account):
         if v_url not in ['y', 'n']:
             print('That was not a valid input, please try again.')
             v_url = ''
+    sorted_articles = sort_items(articles_in_account, 'time_added')
     while not art_disp:
         art_disp = input("How many articles would you like to view "
                          "at once? Type \"all\" to view all"
                          " articles. "
                          )
         if art_disp == 'all':
-            for art in articles_in_account:
-                print_items_info(articles_in_account, art, v_url)
+            for art in sorted_articles:
+                print_items_info(sorted_articles, art[0], v_url)
         elif art_disp != '':
             try:
                 art_disp = int(art_disp)
                 for count in range(int(art_disp)):
-                    print_items_info(articles_in_account, count, v_url)
+                    article = article_display_generator(sorted_articles)
+                    print_items_info(sorted_articles, article, v_url)
             except ValueError:
                 art_disp = ''
                 print("That is not a valid answer, please try again.")

@@ -256,5 +256,58 @@ class PocketConsoleTest(unittest.TestCase):
     def test_exit_strategy(self):
         self.assertRaises(SystemExit, PocketDelDupes.exit_strategy)
 
+    @patch('PocketDelDupes.print_items_info')
+    def test_display_items(self, mock_print_info):
+        with patch('PocketDelDupes.input') as mock_input:
+
+            example_articles_sorted = sorted(self.example_articles.items(),
+                                             key=lambda x: x[1]['time_added'])
+            example_articles_sorted_reverse = sorted(self.example_articles.items(),
+                                                     key=lambda x: x[1]['time_added'],
+                                                     reverse=True)
+
+            mock_input.side_effect = ['y', 'f', 'all']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted, '2', 'y')
+
+            mock_input.reset_mock()
+            mock_input.side_effect = ['n', 'f', 'all']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted, '2', 'y')
+
+            mock_input.side_effect = ['n', 'f', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
+
+            mock_input.side_effect = ['y', 'b', 'all']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+            mock_input.reset_mock()
+            mock_input.side_effect = ['n', 'b', 'all']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+            mock_input.side_effect = ['n', 'b', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+            mock_input.side_effect = ['', 'b', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+            mock_input.side_effect = ['x', '', 'b', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+            mock_input.side_effect = ['', 'b', 'x', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
