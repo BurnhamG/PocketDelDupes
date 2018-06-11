@@ -3,8 +3,11 @@
 import argparse
 import datetime
 import os
+import re
 import webbrowser
+from urllib.parse import urlparse
 
+import validators
 # Site here: https://github.com/tapanpandita/pocket
 from pocket import Pocket
 
@@ -78,8 +81,10 @@ def url_test(art_list):
             if option == '':
                 exit_strategy()
             elif option not in processing_options:
-                print('That is not a valid option, please try again')
-                option = ''
+                if not try_again():
+                    return
+                else:
+                    option = ''
             elif option == 'n':
                 break
             elif option == 'p':
@@ -162,24 +167,25 @@ def del_dupes(masterdict, instance):
 
 def items_to_manipulate():
     """Gets the list of items to act on."""
-    items = input("What are the items? " +
-                  "Separate URLs or IDs with a comma," +
-                  " or provide the path of a text file with each item " +
-                  "on a separate line. ")
-    manip = []
-    if items[-4:].lower() == '.txt':
-        try:
-            with open(os.path.normcase(items), "r", encoding='utf-8') as al:
-                manip.append(line.rstrip() for line in al)
-        except IOError:
-            print("That file does not exist.")
-            if try_again():
-                return -1
-            else:
-                return
-    else:
-        manip = [x.strip() for x in items.split(',')]
-    return manip
+    while True:
+        items = input("What are the items? "
+                      "Separate URLs or IDs with a comma,"
+                      " or provide the path of a text file with each item "
+                      "on a separate line. Leave empty to return to the main menu. ")
+        manip = []
+        if items[-4:].lower() == '.txt':
+            try:
+                with open(os.path.normcase(items), "r", encoding='utf-8') as al:
+                    manip.append(line.rstrip() for line in al)
+            except IOError:
+                print("That file does not exist.")
+                if not try_again():
+                    return
+        elif items == '':
+            return
+        else:
+            manip = [x.strip() for x in items.split(',')]
+        return manip
 
 
 def try_again():
@@ -230,9 +236,10 @@ def exit_strategy():
     raise SystemExit
 
 
-def article_display_generator(input_dict):
-    for art in input_dict:
-        yield art
+# def article_display_generator(input_dict):
+#     while True:
+#         for art in input_dict:
+#             yield art[0]
 
 
 def display_items(articles_in_account):
@@ -244,8 +251,10 @@ def display_items(articles_in_account):
         if v_url == '':
             v_url = 'n'
         if v_url not in ['y', 'n']:
-            print('That was not a valid input, please try again.')
-            v_url = ''
+            if not try_again():
+                return
+            else:
+                v_url = ''
     sorted_articles = sort_items(articles_in_account, 'time_added')
     while not art_disp:
         art_disp = input("How many articles would you like to view "
@@ -258,55 +267,91 @@ def display_items(articles_in_account):
         elif art_disp != '':
             try:
                 art_disp = int(art_disp)
+                # article = article_display_generator(sorted_articles)
+                article = (x[0] for x in sorted_articles)
                 for count in range(int(art_disp)):
-                    article = article_display_generator(sorted_articles)
-                    print_items_info(sorted_articles, article, v_url)
+                    test = next(article)
+                    print_items_info(sorted_articles, test, v_url)
             except ValueError:
-                art_disp = ''
-                print("That is not a valid answer, please try again.")
+                if not try_again():
+                    return
+                else:
+                    art_disp = ''
+
+
+def validate_url(link):
+    if not link.startswith('/'):
+        link_fixed = f'//{link}'
+    else:
+        link_fixed = link
+    url = urlparse(link_fixed, scheme='http')
+    if validators.url(url.geturl()):
+        return url.geturl(), link
+    else:
+        return False, False
+
+
+def get_article_url(id_url_dict, url, link):
+    for article in id_url_dict:
+        if id_url_dict[article]['resolved_url'] == url or id_url_dict[article]['resolved_url'] == link:
+            return article
+        else:
+            print(str(link) +
+                  " was not found in the list. "
+                  "Nothing related to this item will be modified.")
+            return False
 
 
 def add_items(instance):
     """Allows adding items to the list"""
     while True:
+        valid_count = 0
         add_list = items_to_manipulate()
         if not add_list:
-            break
+            return
         elif add_list[0] != -1:
-            if len(add_list) == 1:
-                instance.add(add_list[0])
+            for item in add_list:
+                url, _ = validate_url(item)
+                if url:
+                    instance.add(url)
+                    valid_count += 1
+                else:
+                    print(f"{item} is not a valid URL, "
+                          "and will be disregarded.")
+            if valid_count > 0:
+                instance.commit()
+                return
             else:
-                for item in add_list:
-                    if "." in item:
-                        instance.add(item)
-                    else:
-                        print("This is not a valid URL, "
-                              "the item will be disregarded.")
-            instance.commit()
-            break
+                if not try_again():
+                    return
 
 
 def delete_items(instance, id_url_dict):
     """Allows removing items from the list"""
+    commit = False
     while True:
         delete_list = items_to_manipulate()
         if not delete_list:
-            break
+            return
         elif delete_list[0] != -1:
             for item in delete_list:
-                if "." in item:
-                    try:
-                        instance.delete([aid for aid, u
-                                         in id_url_dict.items()
-                                         if u == item])
-                    except KeyError:
-                        print(str(item) +
-                              " was not found in the list. "
-                              "Nothing related to this item will be modified.")
+                url, link = validate_url(item)
+                if url:
+                    item_id = get_article_url(id_url_dict, url, link)
+                    if item_id:
+                        instance.delete(item_id)
+                        commit = True
                 else:
-                    instance.delete(item)
+                    if re.search(r'[\D]', item):
+                        print(f'{item} is not valid, please limit item IDs to numbers only.')
+                        if not try_again():
+                            return
+                    else:
+                        instance.delete(item)
+                        commit = True
+        if commit:
             instance.commit()
-            break
+            return
 
 
 def view_items(art_dict):
@@ -352,7 +397,7 @@ def main():
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
-    items_list = pocket_instance.get(count=15000, detailType='complete')  # TODO: Change count to 15000 once done
+    items_list = pocket_instance.get(count=15000, detailType='complete')
     full_list = items_list[0]['list']
 
     url_test(full_list)

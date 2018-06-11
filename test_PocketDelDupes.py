@@ -11,17 +11,17 @@ class PocketConsoleTest(unittest.TestCase):
             return value
 
         def replace_print(*args, **kwargs):
-            return None
+            return 'n'
 
         self.example_bad_article_list = {
             '1': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
-                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 0, 'resolved_title': 'Example Title',
                   },
             '2': {'item_id': '2', 'resolved_id': '2', 'given_url': 'https://www.example2.com',
                   'given_title': 'Another Example', 'favorite': '0', 'status': '0',
-                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 1,
                   'resolved_title': 'Another Example Article',
                   'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'}}
@@ -31,13 +31,13 @@ class PocketConsoleTest(unittest.TestCase):
         self.example_articles = {
             '1': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
-                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 0, 'resolved_title': 'Example Title',
                   'resolved_url': 'http://www.example.com', 'word_count': '1250',
                   },
             '2': {'item_id': '2', 'resolved_id': '2', 'given_url': 'https://www.example2.com',
                   'given_title': 'Another Example', 'favorite': '0', 'status': '0',
-                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 1,
                   'resolved_title': 'Another Example Article',
                   'resolved_url': 'http://www.example2.com',
@@ -48,13 +48,13 @@ class PocketConsoleTest(unittest.TestCase):
         self.duplicate_articles = {
             '1': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
-                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 0, 'resolved_title': 'Example Title',
                   'resolved_url': 'http://www.example.com', 'word_count': '1250',
                   },
             '2': {'item_id': '2', 'resolved_id': '2', 'given_url': 'https://www.example2.com',
                   'given_title': 'Another Example', 'favorite': '0', 'status': '0',
-                  'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
+                  'time_added': '1461742844', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 1,
                   'resolved_title': 'Another Example Article',
                   'resolved_url': 'http://www.example2.com',
@@ -259,7 +259,6 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items(self, mock_print_info):
         with patch('PocketDelDupes.input') as mock_input:
-
             example_articles_sorted = sorted(self.example_articles.items(),
                                              key=lambda x: x[1]['time_added'])
             example_articles_sorted_reverse = sorted(self.example_articles.items(),
@@ -271,43 +270,153 @@ class PocketConsoleTest(unittest.TestCase):
             mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
             mock_print_info.assert_any_call(example_articles_sorted, '2', 'y')
 
+            mock_print_info.reset_mock()
             mock_input.reset_mock()
             mock_input.side_effect = ['n', 'f', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
-            mock_print_info.assert_any_call(example_articles_sorted, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted, '1', 'n')
+            mock_print_info.assert_any_call(example_articles_sorted, '2', 'n')
 
+            mock_print_info.reset_mock()
+            mock_input.reset_mock()
             mock_input.side_effect = ['n', 'f', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
+            mock_print_info.assert_called_with(example_articles_sorted, '1', 'n')
 
+            mock_print_info.reset_mock()
+            mock_input.reset_mock()
             mock_input.side_effect = ['y', 'b', 'all']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'y')
             mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
 
+            mock_print_info.reset_mock()
             mock_input.reset_mock()
             mock_input.side_effect = ['n', 'b', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'y')
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'n')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
 
+            mock_print_info.reset_mock()
+            mock_input.reset_mock()
             mock_input.side_effect = ['n', 'b', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
 
+            mock_print_info.reset_mock()
+            mock_input.reset_mock()
             mock_input.side_effect = ['', 'b', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+
+    @patch('PocketDelDupes.try_again', return_value=True)
+    @patch('PocketDelDupes.print_items_info')
+    def test_display_items_retry(self, mock_print_info, mock_try):
+        with patch('PocketDelDupes.input') as mock_input:
+            example_articles_sorted = sorted(self.example_articles.items(),
+                                             key=lambda x: x[1]['time_added'])
+            example_articles_sorted_reverse = sorted(self.example_articles.items(),
+                                                     key=lambda x: x[1]['time_added'],
+                                                     reverse=True)
+
+            mock_input.side_effect = ['x', '', 'f', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_called()
+            mock_print_info.assert_called_with(example_articles_sorted, '1', 'n')
+
+            mock_input.side_effect = ['', 'b', 'f', '1']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(example_articles_sorted, '1', 'n')
 
             mock_input.side_effect = ['x', '', 'b', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
 
             mock_input.side_effect = ['', 'b', 'x', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
 
+    @patch('PocketDelDupes.items_to_manipulate')
+    @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    def test_add_items(self, mock_instance, mock_items):
+        mock_items.return_value = ["www.example.com"]
+        PocketDelDupes.add_items(mock_instance)
+        mock_instance.add.assert_called_with('http://' + mock_items.return_value[0])
+        mock_instance.commit.assert_called()
+
+        mock_instance.reset_mock()
+
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = 'n'
+            mock_items.return_value = ["x"]
+            with patch('PocketDelDupes.print') as mock_print:
+                PocketDelDupes.add_items(mock_instance)
+                mock_print.assert_called_once()
+                mock_instance.add.assert_not_called()
+                mock_instance.commit.assert_not_called()
+
+    @patch('PocketDelDupes.items_to_manipulate')
+    @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    def test_delete_items_url(self, mock_instance, mock_items):
+        mock_items.return_value = ["www.example.com"]
+        PocketDelDupes.delete_items(mock_instance, self.example_articles)
+        for item in self.example_articles:
+            if self.example_articles[item]['resolved_url'] == 'http://' + mock_items.return_value[0]:
+                mock_id = item
+        mock_instance.delete.assert_called_with(mock_id)
+        mock_instance.commit.assert_called()
+
+        mock_instance.reset_mock()
+
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = 'n'
+            mock_items.return_value = ["x"]
+            with patch('PocketDelDupes.print') as mock_print:
+                PocketDelDupes.delete_items(mock_instance, self.example_articles)
+                mock_print.assert_called_once()
+                mock_instance.delete.assert_not_called()
+                mock_instance.commit.assert_not_called()
+
+    @patch('PocketDelDupes.items_to_manipulate')
+    @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    def test_delete_items_id(self, mock_instance, mock_items):
+        mock_items.return_value = ["1"]
+        PocketDelDupes.delete_items(mock_instance, self.example_articles)
+        mock_instance.delete.assert_called_with("1")
+        mock_instance.commit.assert_called()
+
+        mock_instance.reset_mock()
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = 'n'
+            mock_items.return_value = ["1,"]
+            with patch('PocketDelDupes.print') as mock_print:
+                PocketDelDupes.delete_items(mock_instance, self.example_articles)
+                mock_print.assert_called_once()
+                mock_instance.delete.assert_not_called()
+                mock_instance.commit.assert_not_called()
+
+        mock_instance.reset_mock()
+        mock_print.reset_mock()
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = 'y'
+            mock_items.side_effect = [["1,"], ['1']]
+            with patch('PocketDelDupes.print') as mock_print:
+                PocketDelDupes.delete_items(mock_instance, self.example_articles)
+                mock_print.assert_called_once()
+                mock_instance.delete.assert_called()
+                mock_instance.commit.assert_called_once()
+
+    def test_get_article_url(self):
+        returned_article = PocketDelDupes.get_article_url(self.example_articles, 'http://www.example.com',
+                                                          'www.example.com')
+        self.assertEqual(returned_article, '1')
+
+    def test_get_article_url_bad(self):
+        returned_article = PocketDelDupes.get_article_url(self.example_articles, 'http://www.example.co',
+                                                          'www.example.co')
+        self.assertEqual(returned_article, False)
+
+    def test_view_items(self):
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
