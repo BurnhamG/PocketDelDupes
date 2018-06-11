@@ -415,8 +415,7 @@ def main():
         master_article_dictionary = del_dupes(master_article_dictionary, pocket_instance)
 
     while True:
-        choice = input("What would you like to do "
-                       "([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()
+        choice = input("What would you like to do ([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()
         if choice == "e":
             exit_strategy()
         elif choice == 'a':
@@ -427,6 +426,9 @@ def main():
             view_items(master_article_dictionary)
         elif choice == 't':
             tags_editing(pocket_instance, master_article_dictionary)
+        else:
+            if not try_again():
+                exit_strategy()
 
 
 if __name__ == '__main__':

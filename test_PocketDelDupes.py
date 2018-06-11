@@ -46,6 +46,14 @@ class PocketConsoleTest(unittest.TestCase):
                   }
         }
 
+        self.example_articles_cleaned = {
+            '1': {'resolved_url': 'http://www.example.com', 'word_count': '1250', 'tags': {},
+                  'resolved_title': 'Example Title', 'time_added': '1461738821'},
+            '2': {'resolved_url': 'http://www.example2.com', 'word_count': '10000',
+                  'tags': ['Example_tag', 'Second_tag'], 'resolved_title': 'Another Example Article',
+                  'time_added': '1461742844'}
+        }
+
         self.duplicate_articles = {
             '1': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
@@ -514,24 +522,47 @@ class PocketConsoleTest(unittest.TestCase):
         mock_instance.tags_clear.assert_any_call(self.example_articles['2']['item_id'])
         mock_instance.commit.assert_called_once()
 
+    @patch('PocketDelDupes.exit_strategy')
+    @patch('PocketDelDupes.try_again')
+    @patch('PocketDelDupes.tags_editing')
+    @patch('PocketDelDupes.view_items')
+    @patch('PocketDelDupes.delete_items')
+    @patch('PocketDelDupes.add_items')
     @patch('PocketDelDupes.del_dupes')
     @patch('PocketDelDupes.clean_db')
     @patch('PocketDelDupes.url_test')
-    @patch('PocketDelDupes.pocket_authenticate')
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    @patch('PocketDelDupes.pocket_authenticate')
     @patch('PocketDelDupes.create_arg_parser')
-    def test_main(self, mock_parser, mock_instance, mock_authenticate, mock_url_test, mock_clean):
+    def test_main(self, mock_parser, mock_authenticate, mock_instance, mock_url_test, mock_clean, mock_del_dupes,
+                  mock_add, mock_delete, mock_view, mock_tags, mock_try_again, mock_exit):
         mock_parser.return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
         mock_authenticate.return_value = mock_instance
         mock_instance.get.return_value = [{'list': self.example_articles}]
-        test_master_article_dictionary = PocketDelDupes.clean_db(self.example_articles)
+        test_master_article_dictionary = self.example_articles_cleaned
+        mock_clean.return_value = test_master_article_dictionary
+        mock_del_dupes.return_value = self.example_articles_cleaned
+        mock_try_again.return_value = 'y'
+        mock_exit.side_effect = SystemExit
 
         with patch('PocketDelDupes.input') as mock_input:
-            mock_input.side_effect = ['y', 'a']
-            PocketDelDupes.main()
+            mock_input.side_effect = ['y', 'a', 'd', 'v', 't', 'x', 'e']
+            with self.assertRaises(SystemExit):
+                PocketDelDupes.main()
 
+        self.assertEqual(mock_parser.call_count, 2)
+        mock_authenticate.assert_called_once()
+        mock_instance.get.assert_called_once()
         mock_url_test.assert_called_once()
-        mock_clean.assert_called_with(test_master_article_dictionary)
+        mock_clean.assert_called_with(self.example_articles)
+        mock_del_dupes.assert_called_with(test_master_article_dictionary, mock_instance)
+        mock_add.assert_called_with(mock_instance)
+        mock_delete.assert_called_with(mock_instance, test_master_article_dictionary)
+        mock_view.assert_called_with(test_master_article_dictionary)
+        mock_tags.assert_called_with(mock_instance, test_master_article_dictionary)
+        mock_try_again.assert_called_once()
+        mock_exit.assert_called()
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
