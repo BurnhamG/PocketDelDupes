@@ -191,7 +191,7 @@ def items_to_manipulate():
 def try_again():
     decision = ''
     while decision == '':
-        decision = input("Would you like to try again? (y/n)").lower()
+        decision = input("That is not valid, would you like to try again? (y/n)").lower()
         if decision == 'n':
             return False
         elif decision == 'y':
@@ -343,7 +343,7 @@ def delete_items(instance, id_url_dict):
                         commit = True
                 else:
                     if re.search(r'[\D]', item):
-                        print(f'{item} is not valid, please limit item IDs to numbers only.')
+                        print(f'{item} is not a valid ID, please limit item IDs to numbers only.')
                         if not try_again():
                             return
                     else:
@@ -361,11 +361,16 @@ def view_items(art_dict):
                 'l': 'word_count',
                 'u': 'resolved_url'}
 
-    sort_order = input("What would you like to sort by "
-                       "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
-
-    sorted_names = dict(sort_items(art_dict, key_list[sort_order]))
-    display_items(sorted_names)
+    while True:
+        sort_order = input("What would you like to sort by "
+                           "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
+        if sort_order not in key_list.keys():
+            if not try_again():
+                return
+        else:
+            sorted_names = dict(sort_items(art_dict, key_list[sort_order]))
+            display_items(sorted_names)
+            return
 
 
 def tags_editing(instance, full_list):
@@ -376,7 +381,7 @@ def tags_editing(instance, full_list):
         list_art_tags = []
         for item in full_list:
             try:
-                print(full_list[item]['tags'])
+                # print(full_list[item]['tags'])
                 article_tags = full_list[item]['tags'].keys()
                 for t in list(article_tags):
                     list_art_tags.append(t)
@@ -389,8 +394,7 @@ def tags_editing(instance, full_list):
     if edit_tags == 'y':
         for item in full_list:
             instance.tags_clear(full_list[item]['item_id'])
-    instance.commit()
-    print("Done!")
+        instance.commit()
 
 
 def main():

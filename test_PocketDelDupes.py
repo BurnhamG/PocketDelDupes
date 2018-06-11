@@ -41,7 +41,8 @@ class PocketConsoleTest(unittest.TestCase):
                   'time_favorited': '0', 'sort_id': 1,
                   'resolved_title': 'Another Example Article',
                   'resolved_url': 'http://www.example2.com',
-                  'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'}}, 'word_count': '10000'
+                  'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'},
+                           'Second_tag': {'item_id': '2', 'tag': 'Second_tag'}}, 'word_count': '10000'
                   }
         }
 
@@ -58,7 +59,8 @@ class PocketConsoleTest(unittest.TestCase):
                   'time_favorited': '0', 'sort_id': 1,
                   'resolved_title': 'Another Example Article',
                   'resolved_url': 'http://www.example2.com',
-                  'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'}}, 'word_count': '10000'
+                  'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'},
+                           'Second_tag': {'item_id': '2', 'tag': 'Second_tag'}}, 'word_count': '10000'
                   },
             '3': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
@@ -201,6 +203,8 @@ class PocketConsoleTest(unittest.TestCase):
 
         self.assertEqual(test_dict['1']['tags'], {})
         self.assertEqual(test_dict['2']['tags'], list(self.example_articles['2']['tags'].keys()))
+        self.assertEqual(len(test_dict['1'].items()), 5)
+        self.assertEqual(len(test_dict['2'].items()), 5)
 
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
     def test_del_dupes(self, mock_instance):
@@ -363,8 +367,8 @@ class PocketConsoleTest(unittest.TestCase):
         for item in self.example_articles:
             if self.example_articles[item]['resolved_url'] == 'http://' + mock_items.return_value[0]:
                 mock_id = item
-        mock_instance.delete.assert_called_with(mock_id)
-        mock_instance.commit.assert_called()
+                mock_instance.delete.assert_called_with(mock_id)
+                mock_instance.commit.assert_called()
 
         mock_instance.reset_mock()
 
@@ -416,7 +420,118 @@ class PocketConsoleTest(unittest.TestCase):
                                                           'www.example.co')
         self.assertEqual(returned_article, False)
 
-    def test_view_items(self):
+    @patch('PocketDelDupes.display_items')
+    def test_view_items_name(self, mock_display):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['n', 'f']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
+                       reverse=False))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+            mock_input.reset_mock()
+
+            mock_input.side_effect = ['n', 'b']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
+                       reverse=True))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+    @patch('PocketDelDupes.display_items')
+    def test_view_items_time(self, mock_display):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['d', 'f']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'],
+                       reverse=False))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+            mock_input.reset_mock()
+
+            mock_input.side_effect = ['d', 'b']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'],
+                       reverse=True))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+    @patch('PocketDelDupes.display_items')
+    def test_view_items_words(self, mock_display):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['l', 'f']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['word_count'],
+                       reverse=False))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+            mock_input.reset_mock()
+
+            mock_input.side_effect = ['l', 'b']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
+                       reverse=True))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+    @patch('PocketDelDupes.display_items')
+    def test_view_items_url(self, mock_display):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['u', 'f']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_url'],
+                       reverse=False))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+            mock_input.reset_mock()
+
+            mock_input.side_effect = ['u', 'b']
+            PocketDelDupes.view_items(self.example_articles)
+            resolved_title_sorted_dict = dict(
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
+                       reverse=True))
+            mock_display.assert_called_with(resolved_title_sorted_dict)
+
+    @patch('PocketDelDupes.display_items')
+    def test_view_items_invalid(self, mock_display):
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['x', 'n']
+            PocketDelDupes.view_items(self.example_articles)
+            mock_display.assert_not_called()
+
+    @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    @patch('PocketDelDupes.print')
+    @patch('PocketDelDupes.input')
+    def test_tags_editing(self, mock_input, mock_print, mock_instance):
+        mock_input.side_effect = ['y', 'y']
+        PocketDelDupes.tags_editing(mock_instance, self.example_articles)
+        mock_print.assert_called_with(sorted(['Example_tag', 'Second_tag']))
+        mock_instance.tags_clear.assert_any_call(self.example_articles['1']['item_id'])
+        mock_instance.tags_clear.assert_any_call(self.example_articles['2']['item_id'])
+        mock_instance.commit.assert_called_once()
+
+    @patch('PocketDelDupes.del_dupes')
+    @patch('PocketDelDupes.clean_db')
+    @patch('PocketDelDupes.url_test')
+    @patch('PocketDelDupes.pocket_authenticate')
+    @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    @patch('PocketDelDupes.create_arg_parser')
+    def test_main(self, mock_parser, mock_instance, mock_authenticate, mock_url_test, mock_clean):
+        mock_parser.return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
+        mock_authenticate.return_value = mock_instance
+        mock_instance.get.return_value = [{'list': self.example_articles}]
+        test_master_article_dictionary = PocketDelDupes.clean_db(self.example_articles)
+
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['y', 'a']
+            PocketDelDupes.main()
+
+        mock_url_test.assert_called_once()
+        mock_clean.assert_called_with(test_master_article_dictionary)
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
