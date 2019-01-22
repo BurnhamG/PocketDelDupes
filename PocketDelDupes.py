@@ -221,8 +221,7 @@ def sort_items(dict_of_articles, sort_category):
 
 
 def print_items_info(all_articles, article, v_url='n'):
-    time_art_added = datetime.datetime. \
-        fromtimestamp(int(all_articles[article]['time_added']))
+    time_art_added = datetime.datetime.fromtimestamp(int(all_articles[article]['time_added']))
     if v_url == 'y':
         output_end = f"URL is {all_articles[article]['resolved_url']}."
     else:
@@ -255,23 +254,22 @@ def display_items(articles_in_account):
                 return
             else:
                 v_url = ''
-    sorted_articles = sort_items(articles_in_account, 'time_added')
     while not art_disp:
         art_disp = input("How many articles would you like to view "
                          "at once? Type \"all\" to view all"
                          " articles. "
                          )
         if art_disp == 'all':
-            for art in sorted_articles:
-                print_items_info(sorted_articles, art[0], v_url)
+            for art in articles_in_account:
+                print_items_info(articles_in_account, art, v_url)
         elif art_disp != '':
             try:
                 art_disp = int(art_disp)
                 # article = article_display_generator(sorted_articles)
-                article = (x[0] for x in sorted_articles)
+                article = (x[0] for x in articles_in_account)
                 for count in range(int(art_disp)):
                     test = next(article)
-                    print_items_info(sorted_articles, test, v_url)
+                    print_items_info(articles_in_account, test, v_url)
             except ValueError:
                 if not try_again():
                     return
@@ -382,8 +380,8 @@ def tags_editing(instance, full_list):
         for item in full_list:
             try:
                 # print(full_list[item]['tags'])
-                article_tags = full_list[item]['tags'].keys()
-                for t in list(article_tags):
+                article_tags = full_list[item]['tags']
+                for t in article_tags:
                     list_art_tags.append(t)
             except KeyError:
                 pass
@@ -401,7 +399,7 @@ def main():
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
-    items_list = pocket_instance.get(count=15000, detailType='complete')
+    items_list = pocket_instance.get(count=50, detailType='complete')
     full_list = items_list[0]['list']
 
     url_test(full_list)
