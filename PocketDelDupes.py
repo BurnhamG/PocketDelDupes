@@ -208,11 +208,11 @@ def sort_items(dict_of_articles, sort_category):
                           "([F]orward/[B]ackward)? )".lower())
         if direction == 'b':
             return sorted(dict_of_articles.items(),
-                          key=lambda x: x[1][sort_category],
+                          key=lambda x: int(x[1][sort_category]),
                           reverse=True)
         elif direction == 'f':
             return sorted(dict_of_articles.items(),
-                          key=lambda x: x[1][sort_category])
+                          key=lambda x: int(x[1][sort_category]))
         else:
             if try_again():
                 direction = ''
@@ -266,10 +266,10 @@ def display_items(articles_in_account):
             try:
                 art_disp = int(art_disp)
                 # article = article_display_generator(sorted_articles)
-                article = (x[0] for x in articles_in_account)
-                for count in range(int(art_disp)):
-                    test = next(article)
-                    print_items_info(articles_in_account, test, v_url)
+                article = (x for x in articles_in_account)
+                for count in range(art_disp):
+                    art_id = next(article)
+                    print_items_info(articles_in_account, art_id, v_url)
             except ValueError:
                 if not try_again():
                     return
@@ -376,22 +376,26 @@ def tags_editing(instance, full_list):
     print()
     list_tags = input('Would you like to list all the tags? (y/n) ')
     if list_tags.lower() == 'y':
-        list_art_tags = []
+        dict_art_tags = {}
         for item in full_list:
             try:
                 # print(full_list[item]['tags'])
                 article_tags = full_list[item]['tags']
                 for t in article_tags:
-                    list_art_tags.append(t)
+                    if t not in dict_art_tags.keys():
+                        dict_art_tags[t] = 1
+                    else:
+                        dict_art_tags[t] += 1
             except KeyError:
                 pass
 
-        print(sorted(set(list_art_tags)))
+        print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x:x[1],
+                                                                        reverse=True))
 
     edit_tags = input('Do you wish to remove all tags? (y/n) ')
     if edit_tags == 'y':
-        for item in full_list:
-            instance.tags_clear(full_list[item]['item_id'])
+        for item_id in full_list:
+            instance.tags_clear(item_id)
         instance.commit()
 
 
@@ -399,7 +403,7 @@ def main():
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
-    items_list = pocket_instance.get(count=50, detailType='complete')
+    items_list = pocket_instance.get(count=10, detailType='complete')
     full_list = items_list[0]['list']
 
     url_test(full_list)
