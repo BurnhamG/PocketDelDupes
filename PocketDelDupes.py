@@ -112,7 +112,6 @@ def clean_db(raw_article_list):
     # url_id_dict = {}
 
     print(raw_article_list)
-    # TODO: Restructure this to match raw data style
     for item in raw_article_list:
         article_id = raw_article_list[item]['item_id']
         article_time = raw_article_list[item]['time_added']
@@ -201,23 +200,37 @@ def try_again():
             decision = ''
 
 
-def sort_items(dict_of_articles, sort_category):
-    direction = ""
-    while not direction:
-        direction = input("How would you like to sort the articles "
-                          "([F]orward/[B]ackward)? )".lower())
-        if direction == 'b':
-            return sorted(dict_of_articles.items(),
-                          key=lambda x: int(x[1][sort_category]),
-                          reverse=True)
-        elif direction == 'f':
-            return sorted(dict_of_articles.items(),
-                          key=lambda x: int(x[1][sort_category]))
+def sort_items(dict_of_articles):
+    key_list = {'n': 'resolved_title',
+                'd': 'time_added',
+                'l': 'word_count',
+                'u': 'resolved_url'}
+    direction = ''
+
+    while True:
+        sort_order = input("What would you like to sort by "
+                           "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
+        if sort_order not in key_list.keys():
+            if not try_again():
+                return
         else:
-            if try_again():
-                direction = ''
+            while not direction:
+                direction = input("How would you like to sort the articles "
+                                  "([F]orward/[B]ackward)? )").lower()
+                if direction == 'b':
+                    reverse_opt = True
+                elif direction == 'f':
+                    reverse_opt = False
+                else:
+                    if try_again():
+                        direction = ''
+                    else:
+                        return
+            if sort_order == 'l':
+                return sorted(dict_of_articles.items(), key=lambda x: int(x[1][key_list[sort_order]]),
+                              reverse=reverse_opt)
             else:
-                break
+                return sorted(dict_of_articles.items(), key=lambda x: x[1][key_list[sort_order]], reverse=reverse_opt)
 
 
 def print_items_info(all_articles, article, v_url='n'):
@@ -259,6 +272,7 @@ def display_items(articles_in_account):
                          "at once? Type \"all\" to view all"
                          " articles. "
                          )
+        print()
         if art_disp == 'all':
             for art in articles_in_account:
                 print_items_info(articles_in_account, art, v_url)
@@ -267,6 +281,7 @@ def display_items(articles_in_account):
                 art_disp = int(art_disp)
                 # article = article_display_generator(sorted_articles)
                 article = (x for x in articles_in_account)
+                # TODO: Give the user the opportunity to quit or continue viewing items
                 for count in range(art_disp):
                     art_id = next(article)
                     print_items_info(articles_in_account, art_id, v_url)
@@ -354,27 +369,17 @@ def delete_items(instance, id_url_dict):
 
 def view_items(art_dict):
     """Allows the user to view information about their list items."""
-    key_list = {'n': 'resolved_title',
-                'd': 'time_added',
-                'l': 'word_count',
-                'u': 'resolved_url'}
 
-    while True:
-        sort_order = input("What would you like to sort by "
-                           "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
-        if sort_order not in key_list.keys():
-            if not try_again():
-                return
-        else:
-            sorted_names = dict(sort_items(art_dict, key_list[sort_order]))
-            display_items(sorted_names)
-            return
+    sorted_names = sort_items(art_dict)
+    if sorted_names:
+        display_items(dict(sorted_names))
+    return
 
 
 def tags_editing(instance, full_list):
     """Allows editing of the tags."""
     print()
-    list_tags = input('Would you like to list all the tags? (y/n) ')
+    list_tags = input('Would you like to list tags for all articles? (y/n) ')
     if list_tags.lower() == 'y':
         dict_art_tags = {}
         for item in full_list:
@@ -388,15 +393,17 @@ def tags_editing(instance, full_list):
                         dict_art_tags[t] += 1
             except KeyError:
                 pass
+        if dict_art_tags:
+            print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x: x[1],
+                                                                            reverse=True))
 
-        print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x:x[1],
-                                                                        reverse=True))
-
-    edit_tags = input('Do you wish to remove all tags? (y/n) ')
-    if edit_tags == 'y':
-        for item_id in full_list:
-            instance.tags_clear(item_id)
-        instance.commit()
+            edit_tags = input('Do you wish to remove all tags? (y/n) ')
+            if edit_tags == 'y':
+                for item_id in full_list:
+                    instance.tags_clear(item_id)
+                instance.commit()
+        else:
+            print("None of the articles have tags!")
 
 
 def main():

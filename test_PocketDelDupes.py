@@ -192,6 +192,13 @@ class PocketConsoleTest(unittest.TestCase):
         mock_exit.assert_called()
         self.assertRaises(SystemExit, mock_exit)
 
+    @patch('PocketDelDupes.output_bad')
+    @patch('PocketDelDupes.input')
+    def test_url_test_user_error(self, mock_input, mock_output):
+        mock_input.side_effect = ['x', 'y', 'b']
+        PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(self.example_bad_article_list, save_bad=True, print_bad=True)
+
     def test_filterurl(self):
         urls = ['www.example.com/test', 'www.example.com/test?utm=referrer', 'www.example.com/test?mc=referrer',
                 'www.example.com/test?roi=referrer']
@@ -250,20 +257,40 @@ class PocketConsoleTest(unittest.TestCase):
             self.assertTrue(PocketDelDupes.try_again())
 
     def test_sort_items(self):
+        # example_articles_sorted = sorted(self.example_articles.items(),
+        #                                  key=lambda x: x[1]['time_added'])
+        # example_articles_sorted_reverse = sorted(self.example_articles.items(),
+        #                                          key=lambda x: x[1]['time_added'],
+        #                                          reverse=True)
         with patch('PocketDelDupes.input') as mock_input:
-            for v in {'n': 'resolved_title', 'd': 'time_added', 'l': 'word_count', 'u': 'resolved_url'}.values():
-                mock_input.return_value = 'b'
-                example_return = PocketDelDupes.sort_items(self.example_articles, v)
-                example_articles_sorted = sorted(self.example_articles.items(),
-                                                 key=lambda x: x[1][v],
-                                                 reverse=True)
-                self.assertEqual(example_return, example_articles_sorted)
+            key_list = {'n': 'resolved_title',
+                        'd': 'time_added',
+                        'l': 'word_count',
+                        'u': 'resolved_url'}
+            for v in key_list:
+                mock_input.side_effect = [v, 'b']
+                example_return = PocketDelDupes.sort_items(self.example_articles)
+                if v == 'l':
+                    example_articles_sorted = sorted(self.example_articles.items(),
+                                                     key=lambda x: int(x[1][key_list[v]]),
+                                                     reverse=True)
+                else:
+                    example_articles_sorted = sorted(self.example_articles.items(),
+                                                     key=lambda x: x[1][key_list[v]],
+                                                     reverse=True)
+                self.assertEqual(example_return, example_articles_sorted,
+                                 msg=f"The sorted lists are not equal when sorted backward using {key_list[v]}.")
 
-                mock_input.return_value = 'f'
-                example_return = PocketDelDupes.sort_items(self.example_articles, v)
-                example_articles_sorted = sorted(self.example_articles.items(),
-                                                 key=lambda x: x[1][v])
-                self.assertEqual(example_return, example_articles_sorted)
+                mock_input.side_effect = [v, 'f']
+                example_return = PocketDelDupes.sort_items(self.example_articles)
+                if v == 'l':
+                    example_articles_sorted = sorted(self.example_articles.items(),
+                                                     key=lambda x: int(x[1][key_list[v]]))
+                else:
+                    example_articles_sorted = sorted(self.example_articles.items(),
+                                                     key=lambda x: x[1][key_list[v]])
+                self.assertEqual(example_return, example_articles_sorted,
+                                 msg=f"The sorted lists are not equal when sorted forward using {key_list[v]}.")
 
     def test_exit_strategy(self):
         self.assertRaises(SystemExit, PocketDelDupes.exit_strategy)
@@ -271,82 +298,78 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items(self, mock_print_info):
         with patch('PocketDelDupes.input') as mock_input:
-            example_articles_sorted = sorted(self.example_articles.items(),
-                                             key=lambda x: x[1]['time_added'])
-            example_articles_sorted_reverse = sorted(self.example_articles.items(),
-                                                     key=lambda x: x[1]['time_added'],
-                                                     reverse=True)
 
-            mock_input.side_effect = ['y', 'f', 'all']
+
+            mock_input.side_effect = ['y', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted, '1', 'y')
-            mock_print_info.assert_any_call(example_articles_sorted, '2', 'y')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'y')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'y')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', 'f', 'all']
+            mock_input.side_effect = ['n', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted, '1', 'n')
-            mock_print_info.assert_any_call(example_articles_sorted, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', 'f', '1']
+            mock_input.side_effect = ['n', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_called_with(example_articles_sorted, '1', 'n')
+            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['y', 'b', 'all']
+            mock_input.side_effect = ['y', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'y')
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'y')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'y')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'y')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', 'b', 'all']
+            mock_input.side_effect = ['n', 'all']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '1', 'n')
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', 'b', '1']
+            mock_input.side_effect = ['n', '2']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['', 'b', '1']
+            mock_input.side_effect = ['', '2']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
     @patch('PocketDelDupes.try_again', return_value=True)
     @patch('PocketDelDupes.print_items_info')
     def test_display_items_retry(self, mock_print_info, mock_try):
         with patch('PocketDelDupes.input') as mock_input:
-            example_articles_sorted = sorted(self.example_articles.items(),
-                                             key=lambda x: x[1]['time_added'])
-            example_articles_sorted_reverse = sorted(self.example_articles.items(),
-                                                     key=lambda x: x[1]['time_added'],
-                                                     reverse=True)
 
-            mock_input.side_effect = ['x', '', 'f', '1']
+            mock_input.side_effect = ['x', '', '1']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_called()
-            mock_print_info.assert_called_with(example_articles_sorted, '1', 'n')
+            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
 
-            mock_input.side_effect = ['', 'b', 'f', '1']
+            mock_input.side_effect = ['x', 'q', '', 'b', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted, '1', 'n')
+            mock_print_info.assert_called()
+            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
 
-            mock_input.side_effect = ['x', '', 'b', '1']
+            mock_input.side_effect = ['', 'b', '1']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'n')
 
-            mock_input.side_effect = ['', 'b', 'x', '1']
+            mock_input.side_effect = ['x', '', '2']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_any_call(example_articles_sorted_reverse, '2', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
+
+            mock_input.side_effect = ['', 'b', '2']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
     @patch('PocketDelDupes.items_to_manipulate')
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
@@ -434,8 +457,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['n', 'f']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
-                       reverse=False))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'], reverse=False))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
             mock_input.reset_mock()
@@ -443,8 +465,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['n', 'b']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
-                       reverse=True))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
     @patch('PocketDelDupes.display_items')
@@ -453,8 +474,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['d', 'f']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'],
-                       reverse=False))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'], reverse=False))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
             mock_input.reset_mock()
@@ -462,8 +482,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['d', 'b']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'],
-                       reverse=True))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
     @patch('PocketDelDupes.display_items')
@@ -472,8 +491,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['l', 'f']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['word_count'],
-                       reverse=False))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['word_count'], reverse=False))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
             mock_input.reset_mock()
@@ -481,8 +499,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['l', 'b']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
-                       reverse=True))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
     @patch('PocketDelDupes.display_items')
@@ -491,8 +508,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['u', 'f']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_url'],
-                       reverse=False))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_url'], reverse=False))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
             mock_input.reset_mock()
@@ -500,8 +516,7 @@ class PocketConsoleTest(unittest.TestCase):
             mock_input.side_effect = ['u', 'b']
             PocketDelDupes.view_items(self.example_articles)
             resolved_title_sorted_dict = dict(
-                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'],
-                       reverse=True))
+                sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
     @patch('PocketDelDupes.display_items')
@@ -517,10 +532,22 @@ class PocketConsoleTest(unittest.TestCase):
     def test_tags_editing(self, mock_input, mock_print, mock_instance):
         mock_input.side_effect = ['y', 'y']
         PocketDelDupes.tags_editing(mock_instance, self.example_articles)
-        mock_print.assert_called_with(sorted(['Example_tag', 'Second_tag']))
+        mock_print.assert_called_with("Here are the tags, along with their frequency: ",
+                                      [('Example_tag', 1), ('Second_tag', 1)])
         mock_instance.tags_clear.assert_any_call(self.example_articles['1']['item_id'])
         mock_instance.tags_clear.assert_any_call(self.example_articles['2']['item_id'])
         mock_instance.commit.assert_called_once()
+
+        mock_input.reset_mock()
+        mock_instance.reset_mock()
+
+        mock_input.side_effect = ['y', 'n']
+        PocketDelDupes.tags_editing(mock_instance, self.example_articles)
+        mock_print.assert_called_with("Here are the tags, along with their frequency: ",
+                                      [('Example_tag', 1), ('Second_tag', 1)])
+        mock_instance.tags_clear.assert_not_called()
+        mock_instance.tags_clear.assert_not_called()
+        mock_instance.commit.assert_not_called()
 
     @patch('PocketDelDupes.exit_strategy')
     @patch('PocketDelDupes.try_again')
