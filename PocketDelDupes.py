@@ -222,10 +222,9 @@ def sort_items(dict_of_articles):
                 elif direction == 'f':
                     reverse_opt = False
                 else:
-                    if try_again():
-                        direction = ''
-                    else:
+                    if not try_again():
                         return
+                    direction = ''
             if sort_order == 'l':
                 return sorted(dict_of_articles.items(), key=lambda x: int(x[1][key_list[sort_order]]),
                               reverse=reverse_opt)
@@ -278,13 +277,29 @@ def display_items(articles_in_account):
                 print_items_info(articles_in_account, art, v_url)
         elif art_disp != '':
             try:
+                print(
+                    'Press enter to view another page of articles, or enter any character to return to the main menu.\n'
+                )
                 art_disp = int(art_disp)
                 # article = article_display_generator(sorted_articles)
                 article = (x for x in articles_in_account)
-                # TODO: Give the user the opportunity to quit or continue viewing items
-                for count in range(art_disp):
-                    art_id = next(article)
-                    print_items_info(articles_in_account, art_id, v_url)
+                article_groups = int(len(articles_in_account) / art_disp)
+                article_groups_extra = len(articles_in_account) % art_disp
+                for i in range(article_groups):
+                    for count in range(art_disp):
+                        art_id = next(article)
+                        print_items_info(articles_in_account, art_id, v_url)
+                    view_more_arts = input()
+                    if view_more_arts != '':
+                        return
+                    else:
+                        continue
+                if article_groups_extra != 0:
+                    print()
+                    for count in range(article_groups_extra):
+                        art_id = next(article)
+                        print_items_info(articles_in_account, art_id, v_url)
+                    print()
             except ValueError:
                 if not try_again():
                     return

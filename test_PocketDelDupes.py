@@ -348,8 +348,9 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items_retry(self, mock_print_info, mock_try):
         with patch('PocketDelDupes.input') as mock_input:
+            # TODO: Rewrite this to accommodate and test the new display loop
 
-            mock_input.side_effect = ['x', '', '1']
+            mock_input.side_effect = ['x', '', '1', '', 'y']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_called()
             mock_print_info.assert_called_with(self.example_articles, '1', 'n')
