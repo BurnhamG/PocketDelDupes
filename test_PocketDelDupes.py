@@ -314,9 +314,9 @@ class PocketConsoleTest(unittest.TestCase):
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', '1']
+            mock_input.side_effect = ['n', '1', '', '']
             PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
+            mock_print_info.assert_any_call(self.example_articles, '1', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
@@ -348,25 +348,32 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items_retry(self, mock_print_info, mock_try):
         with patch('PocketDelDupes.input') as mock_input:
-            # TODO: Rewrite this to accommodate and test the new display loop
 
-            mock_input.side_effect = ['x', '', '1', '', 'y']
+            mock_input.side_effect = ['x', '', '1', '', '', ]
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_called()
-            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
-
-            mock_input.side_effect = ['x', 'q', '', 'b', '1']
-            PocketDelDupes.display_items(self.example_articles)
-            mock_print_info.assert_called()
-            mock_print_info.assert_called_with(self.example_articles, '1', 'n')
-
-            mock_input.side_effect = ['', 'b', '1']
-            PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '1', 'n')
+
+            mock_print_info.reset_mock()
+
+            mock_input.side_effect = ['x', 'q', '', '2', '']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_called()
+            mock_print_info.assert_any_call(self.example_articles, '1', 'n')
+
+            mock_print_info.reset_mock()
+
+            mock_input.side_effect = ['', '1', 'x']
+            PocketDelDupes.display_items(self.example_articles)
+            mock_print_info.assert_called_once()
+
+            mock_print_info.reset_mock()
 
             mock_input.side_effect = ['x', '', '2']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '2', 'n')
+
+            mock_print_info.reset_mock()
 
             mock_input.side_effect = ['', 'b', '2']
             PocketDelDupes.display_items(self.example_articles)

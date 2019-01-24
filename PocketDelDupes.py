@@ -4,6 +4,7 @@ import argparse
 import datetime
 import os
 import re
+import time
 import webbrowser
 from urllib.parse import urlparse
 
@@ -28,16 +29,17 @@ def pocket_authenticate(con_key):
         redirect_uri='https://ddg.gg',
     )
 
-    print('------ ')
-    print('Now opening a browser tab to authenticate with Pocket')
-    print('When finished, press ENTER here...')
-    print('------ ')
+    # print('------ ')
+    # print('Now opening a browser tab to authenticate with Pocket')
+    # print('When finished, press ENTER here...')
+    # print('------ ')
 
     # Open web browser tab to authenticate with Pocket
     webbrowser.open_new_tab(auth_url)
 
     # Wait for user to hit ENTER before proceeding
-    input()
+    # input()
+    time.sleep(3)
 
     access_token = Pocket.get_access_token(
         consumer_key=con_key,
@@ -261,7 +263,7 @@ def display_items(articles_in_account):
                       "information (y/n, default n)?").lower()
         if v_url == '':
             v_url = 'n'
-        if v_url not in ['y', 'n']:
+        elif v_url not in ['y', 'n']:
             if not try_again():
                 return
             else:
@@ -289,11 +291,14 @@ def display_items(articles_in_account):
                     for count in range(art_disp):
                         art_id = next(article)
                         print_items_info(articles_in_account, art_id, v_url)
-                    view_more_arts = input()
-                    if view_more_arts != '':
-                        return
+                    if article_groups > 1 and i != (article_groups - 1):
+                        view_more_arts = input()
+                        if view_more_arts != '':
+                            return
+                        else:
+                            break
                     else:
-                        continue
+                        print()
                 if article_groups_extra != 0:
                     print()
                     for count in range(article_groups_extra):
@@ -425,7 +430,36 @@ def main():
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
-    items_list = pocket_instance.get(count=10, detailType='complete')
+    retrieval_arguments = {'detailType': 'complete'}
+    start_from = ''
+    arts_to_retrieve = ''
+    while not start_from:
+        start_from = input(
+            'Would you like to retrieve articles starting from the [O]ldest or [N]ewest? (Default is Newest) ').lower()
+        if start_from == '' or start_from == 'n':
+            retrieval_arguments['sort'] = 'newest'
+        elif start_from == 'o':
+            retrieval_arguments['sort'] = 'oldest'
+        elif start_from not in ['o', 'n']:
+            if not try_again():
+                exit_strategy()
+            else:
+                start_from = ''
+    while not arts_to_retrieve:
+        arts_to_retrieve = input(
+            f"How many of the {retrieval_arguments['sort']} articles would you like to get? (Default is all) ").lower()
+        if arts_to_retrieve == '' or arts_to_retrieve == 'all':
+            break
+        else:
+            try:
+                arts_to_retrieve = int(arts_to_retrieve)
+                retrieval_arguments['count'] = arts_to_retrieve
+            except ValueError:
+                if not try_again():
+                    exit_strategy()
+                else:
+                    arts_to_retrieve = ''
+    items_list = pocket_instance.get(**retrieval_arguments)
     full_list = items_list[0]['list']
 
     url_test(full_list)
