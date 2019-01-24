@@ -581,13 +581,14 @@ class PocketConsoleTest(unittest.TestCase):
         mock_exit.side_effect = SystemExit
 
         with patch('PocketDelDupes.input') as mock_input:
-            mock_input.side_effect = ['y', 'a', 'd', 'v', 't', 'x', 'e']
+            mock_input.side_effect = ['o', '', 'y', 'a', 'd', 'v', 't', 'x', 'e']
             with self.assertRaises(SystemExit):
                 PocketDelDupes.main()
 
         self.assertEqual(mock_parser.call_count, 2)
         mock_authenticate.assert_called_once()
         mock_instance.get.assert_called_once()
+        mock_instance.get.assert_called_with(detailType='complete', sort='oldest')
         mock_url_test.assert_called_once()
         mock_clean.assert_called_with(self.example_articles)
         mock_del_dupes.assert_called_with(test_master_article_dictionary, mock_instance)

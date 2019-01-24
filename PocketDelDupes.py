@@ -140,12 +140,13 @@ def clean_db(raw_article_list):
         masterdict[article_id]['time_added'] = article_time
 
     print('\n' + str(len(masterdict)) +
-          " total articles in your Pocket list.\n")
+          " total articles retrieved from your Pocket list.\n")
     return masterdict
 
 
 def del_dupes(masterdict, instance):
     # This dictionary will hold only unique entries
+    # TODO:Have this list the articles before deleting them
     resolved_urls = []
     filtereddict = {}
 
@@ -427,6 +428,7 @@ def tags_editing(instance, full_list):
 
 
 def main():
+    # TODO:This should save the retrieved articles to avoid pulling the full list every time
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
