@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import os
+import pickle
 import re
 import time
 import webbrowser
@@ -62,7 +63,8 @@ def output_bad(list_of_bad, save_bad=False, print_bad=False):
 
 
 def url_test(art_list):
-    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
+    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires.
+    TODO: Give the user the option to continue, ignoring the bad articles"""
     var_error = 0
     bad_list = []
     option = ''
@@ -127,6 +129,7 @@ def clean_db(raw_article_list):
 
         # Remove extra junk from URLS (DANGEROUS - don't remove too much!)
         article_url = filterurl(article_url, '?utm')
+        article_url = filterurl(article_url, '&utm')
         article_url = filterurl(article_url, '?roi')
         article_url = filterurl(article_url, '?mc')
 
@@ -146,25 +149,42 @@ def clean_db(raw_article_list):
 
 def del_dupes(masterdict, instance):
     # This dictionary will hold only unique entries
-    # TODO:Have this list the articles before deleting them
-    resolved_urls = []
-    filtereddict = {}
-
-    # This loop will find the duplicate URLs and delete them from the list
-    delete_count = 0
+    ids_to_delete = []
+    reversed_dict = {}
+    confirm_delete = ''
     for k, v in masterdict.items():
-        if v['resolved_url'] not in resolved_urls:
-            resolved_urls.append(v['resolved_url'])
-            filtereddict[k] = v
+        if v['resolved_url'] in reversed_dict.keys():
+            reversed_dict[v['resolved_url']].append(k)
         else:
-            print("Removing duplicate: " + v['resolved_url'])
-            delete_count += 1
-            instance.delete(str(k), wait=False)
+            reversed_dict[v['resolved_url']] = [k]
 
-    print(str(delete_count) + ' items were deleted.')
-    print('There are now ' + str(len(filtereddict)) +
-          " unique articles in your Pocket list.")
-    return filtereddict
+    dupe_dict = {masterdict[v[0]]['resolved_title']: v.sort(reverse=True) for k, v in reversed_dict.items() if
+                 len(reversed_dict[k]) > 1}
+
+    print("Here are the articles that are duplicates:")
+    for i, (k, v) in enumerate(dupe_dict.items()):
+        print(i + 1, k, '- IDs: ' + ', '.join(v))
+        ids_to_delete.extend(v[:-1] if len(v) > 1 else v[0])
+    while not confirm_delete:
+        confirm_delete = input(
+            "Do you want to delete these duplicates? The article(s) most recently added will be removed. (Y/N)").lower()
+        if confirm_delete == '':
+            confirm_delete = 'n'
+        elif confirm_delete not in ['y', 'n']:
+            if not try_again():
+                return
+            else:
+                confirm_delete = ''
+    if confirm_delete == 'y':
+        # This loop will delete duplicates from the list
+        for x in ids_to_delete:
+            instance.delete(x)
+            del masterdict[x]
+        instance.commit()
+        print(str(len(ids_to_delete)) + ' items were deleted.')
+        print('There are now ' + str(len(masterdict)) +
+              " unique articles in your Pocket list.")
+    return masterdict
 
 
 def items_to_manipulate():
@@ -427,8 +447,33 @@ def tags_editing(instance, full_list):
             print("None of the articles have tags!")
 
 
+def load_articles_from_disk():
+    if not os.path.exists('article_list'):
+        print('No previous sync detected - proceeding by retrieving articles from website.')
+        return
+    else:
+        with open('article_list', 'rb') as fin:
+            current_list = pickle.loads(fin.read())
+        with open('last_sync', 'rb') as lsin:
+            last_sync = pickle.loads(lsin.read())
+    return current_list, last_sync
+
+
+def save_articles_to_disk(article_dict, last_sync_date):
+    if os.path.exists('article_list'):
+        os.replace('article_list', 'article_list.bak')
+    with open('article_list', 'wb') as fout:
+        pickle.dump(article_dict, fout)
+    with open('last_sync', 'wb') as lsout:
+        pickle.dump(last_sync_date, lsout)
+
+
+def check_sync_date(sync_date):
+    # TODO:Compare sync date with current date and ask about new sync if date is old enough
+    pass
+
+
 def main():
-    # TODO:This should save the retrieved articles to avoid pulling the full list every time
     parser = create_arg_parser()
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
@@ -439,6 +484,7 @@ def main():
         start_from = input(
             'Would you like to retrieve articles starting from the [O]ldest or [N]ewest? (Default is Newest) ').lower()
         if start_from == '' or start_from == 'n':
+            start_from = 'n'
             retrieval_arguments['sort'] = 'newest'
         elif start_from == 'o':
             retrieval_arguments['sort'] = 'oldest'
@@ -461,8 +507,14 @@ def main():
                     exit_strategy()
                 else:
                     arts_to_retrieve = ''
-    items_list = pocket_instance.get(**retrieval_arguments)
-    full_list = items_list[0]['list']
+    items_list = load_articles_from_disk()
+    if not items_list:
+        items_list = pocket_instance.get(**retrieval_arguments)
+        full_list = items_list[0]['list']
+        retrieval_time = items_list[0]['since']
+    else:
+        full_list = items_list[0]
+        retrieval_time = items_list[1]
 
     url_test(full_list)
 
@@ -472,7 +524,10 @@ def main():
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')
     if check_dupes.lower() == 'y':
+        print()
         master_article_dictionary = del_dupes(master_article_dictionary, pocket_instance)
+
+    save_articles_to_disk(master_article_dictionary, retrieval_time)
 
     while True:
         choice = input("What would you like to do ([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()

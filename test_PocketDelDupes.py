@@ -299,7 +299,6 @@ class PocketConsoleTest(unittest.TestCase):
     def test_display_items(self, mock_print_info):
         with patch('PocketDelDupes.input') as mock_input:
 
-
             mock_input.side_effect = ['y', 'all']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '1', 'y')
