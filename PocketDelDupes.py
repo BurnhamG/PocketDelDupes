@@ -470,7 +470,13 @@ def save_articles_to_disk(article_dict, last_sync_date):
 
 def check_sync_date(sync_date):
     # TODO:Compare sync date with current date and ask about new sync if date is old enough
-    pass
+    if datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
+        resync = input('The saved list of articles has not been synchronized in two weeks. '
+                       'Would you like to update the saved list? (Y/N) ').lower()
+        if resync == 'y':
+            return True
+        else:
+            return False
 
 
 def main():
@@ -510,11 +516,11 @@ def main():
     items_list = load_articles_from_disk()
     if not items_list:
         items_list = pocket_instance.get(**retrieval_arguments)
-        full_list = items_list[0]['list']
-        retrieval_time = items_list[0]['since']
     else:
-        full_list = items_list[0]
-        retrieval_time = items_list[1]
+        if check_sync_date(items_list[1]):
+            items_list = pocket_instance.get(**retrieval_arguments)
+    full_list = items_list[0]['list']
+    retrieval_time = items_list[0]['since']
 
     url_test(full_list)
 
