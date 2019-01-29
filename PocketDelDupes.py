@@ -158,7 +158,7 @@ def del_dupes(masterdict, instance):
         else:
             reversed_dict[v['resolved_url']] = [k]
 
-    dupe_dict = {masterdict[v[0]]['resolved_title']: v.sort(reverse=True) for k, v in reversed_dict.items() if
+    dupe_dict = {masterdict[v[0]]['resolved_title']: sorted(v, reverse=True) for k, v in reversed_dict.items() if
                  len(reversed_dict[k]) > 1}
 
     print("Here are the articles that are duplicates:")
@@ -469,7 +469,7 @@ def save_articles_to_disk(article_dict, last_sync_date):
 
 
 def check_sync_date(sync_date):
-    # TODO:Compare sync date with current date and ask about new sync if date is old enough
+
     if datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
         resync = input('The saved list of articles has not been synchronized in two weeks. '
                        'Would you like to update the saved list? (Y/N) ').lower()
@@ -477,6 +477,15 @@ def check_sync_date(sync_date):
             return True
         else:
             return False
+
+
+def prepare_articles_dict(items):
+    full_list = items[0]['list']
+    retrieval_time = items[0]['since']
+    url_test(full_list)
+    # Clean and parse data
+    cleaned_dict = clean_db(full_list)
+    return cleaned_dict, retrieval_time
 
 
 def main():
@@ -516,16 +525,14 @@ def main():
     items_list = load_articles_from_disk()
     if not items_list:
         items_list = pocket_instance.get(**retrieval_arguments)
+        master_article_dictionary, retrieval_time = prepare_articles_dict(items_list)
     else:
         if check_sync_date(items_list[1]):
             items_list = pocket_instance.get(**retrieval_arguments)
-    full_list = items_list[0]['list']
-    retrieval_time = items_list[0]['since']
-
-    url_test(full_list)
-
-    # Clean and parse data
-    master_article_dictionary = clean_db(full_list)
+            master_article_dictionary, retrieval_time = prepare_articles_dict(items_list)
+        else:
+            master_article_dictionary = items_list[0]
+            retrieval_time = items_list[1]
 
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')

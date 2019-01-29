@@ -1,3 +1,4 @@
+import time
 import unittest
 from unittest.mock import patch
 
@@ -7,9 +8,6 @@ import PocketDelDupes
 class PocketConsoleTest(unittest.TestCase):
 
     def setUp(self):
-        def replace_input(value=None):
-            return value
-
         def replace_print(*args, **kwargs):
             return 'n'
 
@@ -70,13 +68,13 @@ class PocketConsoleTest(unittest.TestCase):
                   'tags': {'Example_tag': {'item_id': '2', 'tag': 'Example_tag'},
                            'Second_tag': {'item_id': '2', 'tag': 'Second_tag'}}, 'word_count': '10000'
                   },
-            '3': {'item_id': '1', 'resolved_id': '1', 'given_url': 'http://www.example.com',
+            '3': {'item_id': '3', 'resolved_id': '3', 'given_url': 'http://www.example.com',
                   'given_title': 'Example Title', 'favorite': '0', 'status': '0',
                   'time_added': '1461742845', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 0, 'resolved_title': 'Example Title',
                   'resolved_url': 'http://www.example.com', 'word_count': '1250',
                   },
-            '4': {'item_id': '2', 'resolved_id': '2', 'given_url': 'https://www.example2.com',
+            '4': {'item_id': '4', 'resolved_id': '4', 'given_url': 'https://www.example2.com',
                   'given_title': 'Another Example', 'favorite': '0', 'status': '0',
                   'time_added': '1461738822', 'time_updated': '1522220665', 'time_read': '0',
                   'time_favorited': '0', 'sort_id': 1,
@@ -86,14 +84,14 @@ class PocketConsoleTest(unittest.TestCase):
                   }
         }
 
-        PocketDelDupes.input = replace_input
         PocketDelDupes.print = replace_print
 
+    @patch('PocketDelDupes.time', return_value=None)
     @patch('PocketDelDupes.Pocket.get_access_token', spec=PocketDelDupes.Pocket.get_access_token)
     @patch('PocketDelDupes.webbrowser.open', spec=PocketDelDupes.webbrowser.open)
     @patch('PocketDelDupes.Pocket.get_auth_url', spec=PocketDelDupes.Pocket.get_auth_url)
     @patch('PocketDelDupes.Pocket.get_request_token', spec=PocketDelDupes.Pocket.get_request_token)
-    def test_authenticate(self, mock_pocket_request, mock_pocket_auth, mock_browser, mock_access_token):
+    def test_authenticate(self, mock_pocket_request, mock_pocket_auth, mock_browser, mock_access_token, mock_time):
         test_con_key = 'key'
 
         req_token = '987zyxwv-ut65-s432-1r0q-p1o23n'
@@ -181,6 +179,13 @@ class PocketConsoleTest(unittest.TestCase):
         PocketDelDupes.url_test(self.example_bad_article_list)
         mock_output.assert_called_with(self.example_bad_article_list, save_bad=True, print_bad=True)
 
+    @patch('PocketDelDupes.output_bad')
+    @patch('PocketDelDupes.input')
+    def test_url_test_no_retry(self, mock_input, mock_output):
+        mock_input.side_effect = ['q', 'n']
+        PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_not_called()
+
     @patch('PocketDelDupes.exit_strategy')
     @patch('PocketDelDupes.output_bad')
     @patch('PocketDelDupes.input', return_value='')
@@ -223,9 +228,41 @@ class PocketConsoleTest(unittest.TestCase):
 
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
     def test_del_dupes(self, mock_instance):
-        mock_filtered_dict = PocketDelDupes.del_dupes(self.duplicate_articles, mock_instance)
-        self.assertEqual(mock_filtered_dict, self.example_articles)
-        mock_instance.delete.assert_called()
+
+        with patch('PocketDelDupes.input') as mock_input:
+            dup_arts = dict(self.duplicate_articles)
+            mock_input.side_effect = ['n']
+            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+            self.assertEqual(mock_filtered_dict, self.duplicate_articles)
+            mock_instance.delete.assert_not_called()
+            mock_instance.commit.assert_not_called()
+
+            dup_arts = dict(self.duplicate_articles)
+            mock_input.reset_mock()
+            mock_instance.reset_mock()
+            mock_input.side_effect = ['y']
+            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+            self.assertEqual(mock_filtered_dict, self.example_articles)
+            mock_instance.delete.assert_called()
+            mock_instance.commit.assert_called()
+
+            dup_arts = dict(self.duplicate_articles)
+            mock_input.reset_mock()
+            mock_instance.reset_mock()
+            mock_input.side_effect = ['x', 'y', 'y']
+            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+            self.assertEqual(mock_filtered_dict, self.example_articles)
+            mock_instance.delete.assert_called()
+            mock_instance.commit.assert_called()
+
+            dup_arts = dict(self.duplicate_articles)
+            mock_input.reset_mock()
+            mock_instance.reset_mock()
+            mock_input.side_effect = ['']
+            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+            self.assertEqual(mock_filtered_dict, self.duplicate_articles)
+            mock_instance.delete.assert_not_called()
+            mock_instance.commit.assert_not_called()
 
     @patch('PocketDelDupes.input', return_value='items to edit.txt')
     def test_items_to_manipulate_text_file(self, mock_input):
@@ -566,13 +603,16 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.clean_db')
     @patch('PocketDelDupes.url_test')
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
+    @patch('PocketDelDupes.load_articles_from_disk')
     @patch('PocketDelDupes.pocket_authenticate')
     @patch('PocketDelDupes.create_arg_parser')
-    def test_main(self, mock_parser, mock_authenticate, mock_instance, mock_url_test, mock_clean, mock_del_dupes,
+    def test_main(self, mock_parser, mock_authenticate, mock_load, mock_instance, mock_url_test, mock_clean, mock_del_dupes,
                   mock_add, mock_delete, mock_view, mock_tags, mock_try_again, mock_exit):
         mock_parser.return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
         mock_authenticate.return_value = mock_instance
-        mock_instance.get.return_value = [{'list': self.example_articles}]
+        mock_load.return_value = None
+        mock_instance.get.return_value = (
+        {'list': self.example_articles, 'since': str(int(time.time()))}, {'header': 'HTTP'})
         test_master_article_dictionary = self.example_articles_cleaned
         mock_clean.return_value = test_master_article_dictionary
         mock_del_dupes.return_value = self.example_articles_cleaned
