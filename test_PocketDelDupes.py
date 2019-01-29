@@ -264,6 +264,15 @@ class PocketConsoleTest(unittest.TestCase):
             mock_instance.delete.assert_not_called()
             mock_instance.commit.assert_not_called()
 
+            dup_arts = dict(self.duplicate_articles)
+            mock_input.reset_mock()
+            mock_instance.reset_mock()
+            mock_input.side_effect = ['w', 'n']
+            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+            self.assertEqual(mock_filtered_dict, None)
+            mock_instance.delete.assert_not_called()
+            mock_instance.commit.assert_not_called()
+
     @patch('PocketDelDupes.input', return_value='items to edit.txt')
     def test_items_to_manipulate_text_file(self, mock_input):
         mo = unittest.mock.mock_open()
@@ -272,8 +281,13 @@ class PocketConsoleTest(unittest.TestCase):
             mo.assert_called_once()
             mo.reset_mock()
 
-            mock_input.side_effect = IOError
-            self.assertRaises(IOError, PocketDelDupes.items_to_manipulate)
+            mock_input.side_effect = ['test.txt', 'n']
+            mo.side_effect = IOError
+            self.assertEqual(None, PocketDelDupes.items_to_manipulate())
+            mo.reset_mock()
+
+            mock_input.side_effect = ['']
+            self.assertEqual(None, PocketDelDupes.items_to_manipulate())
 
             mock_input.side_effect = None
             mock_input.return_value = '12345, 123456'
@@ -291,6 +305,9 @@ class PocketConsoleTest(unittest.TestCase):
             self.assertFalse(PocketDelDupes.try_again())
 
             mock_input.return_value = 'y'
+            self.assertTrue(PocketDelDupes.try_again())
+
+            mock_input.side_effect = ['r', 'y']
             self.assertTrue(PocketDelDupes.try_again())
 
     def test_sort_items(self):
