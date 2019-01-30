@@ -270,12 +270,6 @@ def exit_strategy():
     raise SystemExit
 
 
-# def article_display_generator(input_dict):
-#     while True:
-#         for art in input_dict:
-#             yield art[0]
-
-
 def display_items(articles_in_account):
     art_disp = ''
     v_url = ''
@@ -304,7 +298,6 @@ def display_items(articles_in_account):
                     'Press enter to view another page of articles, or enter any character to return to the main menu.\n'
                 )
                 art_disp = int(art_disp)
-                # article = article_display_generator(sorted_articles)
                 article = (x for x in articles_in_account)
                 article_groups = int(len(articles_in_account) / art_disp)
                 article_groups_extra = len(articles_in_account) % art_disp
@@ -334,8 +327,11 @@ def display_items(articles_in_account):
 
 
 def validate_url(link):
-    if not link.startswith('/'):
-        link_fixed = f'//{link}'
+    if not link.startswith('//'):
+        if link.startswith('/'):
+            link_fixed = f'/{link}'
+        else:
+            link_fixed = f'//{link}'
     else:
         link_fixed = link
     url = urlparse(link_fixed, scheme='http')
@@ -453,30 +449,36 @@ def load_articles_from_disk():
         return
     else:
         with open('article_list', 'rb') as fin:
-            current_list = pickle.loads(fin.read())
-        with open('last_sync', 'rb') as lsin:
-            last_sync = pickle.loads(lsin.read())
-    return current_list, last_sync
+            sync_and_articles = pickle.loads(fin.read())
+    return sync_and_articles[1], sync_and_articles[0]
 
 
 def save_articles_to_disk(article_dict, last_sync_date):
     if os.path.exists('article_list'):
         os.replace('article_list', 'article_list.bak')
     with open('article_list', 'wb') as fout:
-        pickle.dump(article_dict, fout)
-    with open('last_sync', 'wb') as lsout:
-        pickle.dump(last_sync_date, lsout)
+        pickle.dump([ last_sync_date, article_dict], fout)
 
 
 def check_sync_date(sync_date):
-
+    resync = ''
     if datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
-        resync = input('The saved list of articles has not been synchronized in two weeks. '
-                       'Would you like to update the saved list? (Y/N) ').lower()
+        resync_string = ('The saved list of articles has not been synchronized in two weeks. ' +
+                         'Would you like to update the saved list? (Y/N) ')
+    else:
+        resync_string = ('The saved list of articles has been synchronized in the past two weeks. ' +
+                         'Would you like to update the saved list anyway? (Y/N) ')
+    while not resync:
+        resync = input(resync_string).lower()
         if resync == 'y':
             return True
-        else:
+        elif resync == 'n':
             return False
+        else:
+            if not try_again():
+                exit_strategy()
+            else:
+                resync = ''
 
 
 def prepare_articles_dict(items):
@@ -488,51 +490,92 @@ def prepare_articles_dict(items):
     return cleaned_dict, retrieval_time
 
 
-def main():
-    parser = create_arg_parser()
-    args = parser.parse_args()
-    pocket_instance = pocket_authenticate(args.api_key)
-    retrieval_arguments = {'detailType': 'complete'}
+def get_starting_side(ret_args):
     start_from = ''
-    arts_to_retrieve = ''
     while not start_from:
         start_from = input(
             'Would you like to retrieve articles starting from the [O]ldest or [N]ewest? (Default is Newest) ').lower()
         if start_from == '' or start_from == 'n':
-            start_from = 'n'
-            retrieval_arguments['sort'] = 'newest'
+            ret_args['sort'] = 'newest'
+            return ret_args
         elif start_from == 'o':
-            retrieval_arguments['sort'] = 'oldest'
+            ret_args['sort'] = 'oldest'
+            return ret_args
         elif start_from not in ['o', 'n']:
             if not try_again():
                 exit_strategy()
             else:
                 start_from = ''
+
+
+def article_retrieval_quantity(ret_args):
+    arts_to_retrieve = ''
     while not arts_to_retrieve:
         arts_to_retrieve = input(
-            f"How many of the {retrieval_arguments['sort']} articles would you like to get? (Default is all) ").lower()
+            f"How many of the {ret_args['sort']} articles would you like to get? (Default is all) ").lower()
         if arts_to_retrieve == '' or arts_to_retrieve == 'all':
-            break
+            return 'all'
         else:
             try:
                 arts_to_retrieve = int(arts_to_retrieve)
-                retrieval_arguments['count'] = arts_to_retrieve
+                ret_args['count'] = arts_to_retrieve
+                return ret_args
             except ValueError:
                 if not try_again():
                     exit_strategy()
                 else:
                     arts_to_retrieve = ''
+
+
+def retrieve_articles(instance):
+    get_all = False
+    art_dict = None
+    ret_time = None
     items_list = load_articles_from_disk()
-    if not items_list:
-        items_list = pocket_instance.get(**retrieval_arguments)
-        master_article_dictionary, retrieval_time = prepare_articles_dict(items_list)
+    ret_args = {'detailType': 'complete'}
+    ret_args = get_starting_side(ret_args)
+    art_count = article_retrieval_quantity(ret_args)
+    if art_count != 'all':
+        ret_args['count'] = art_count
+    else:
+        ret_args['count'] = 5000
+        ret_args['offset'] = 0
+
+    if 'offset' in ret_args.keys():
+        get_all = True
+    length = ret_args['count']
+    if not items_list and not get_all:
+        items_list = instance.get(**ret_args)
+    elif not items_list and get_all:
+        while length == ret_args['count']:
+            items_list.append(instance.get(**ret_args))
+            ret_args['offset'] += ret_args['count']
+            length = len(items_list[-1][0]['list'])
+    elif not get_all and items_list:
+        if check_sync_date(items_list[1]):
+            items_list = instance.get(**ret_args)
     else:
         if check_sync_date(items_list[1]):
-            items_list = pocket_instance.get(**retrieval_arguments)
-            master_article_dictionary, retrieval_time = prepare_articles_dict(items_list)
-        else:
-            master_article_dictionary = items_list[0]
-            retrieval_time = items_list[1]
+            while length == ret_args['count']:
+                items_list.append(instance.get(**ret_args))
+                ret_args['offset'] += ret_args['count']
+                length = len(items_list[-1][0]['list'])
+
+    if not art_dict and not ret_time:
+        art_dict, ret_time = prepare_articles_dict(items_list)
+    else:
+        art_dict = items_list[0]
+        ret_time = items_list[1]
+
+    return art_dict, ret_time
+
+
+def main():
+    parser = create_arg_parser()
+    args = parser.parse_args()
+    pocket_instance = pocket_authenticate(args.api_key)
+
+    master_article_dictionary, retrieval_time = retrieve_articles(pocket_instance)
 
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')
