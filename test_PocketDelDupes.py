@@ -1,7 +1,7 @@
 import datetime
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import DEFAULT, patch
 
 import PocketDelDupes
 
@@ -743,6 +743,9 @@ class PocketConsoleTest(unittest.TestCase):
             mo.assert_called_with('article_list', 'rb')
             mock_pickle.loads.assert_called()
 
+    def test_save_articles_to_disk(self):
+        pass
+
     @patch('PocketDelDupes.input')
     def test_check_sync_date(self, mock_input):
         old_list = ('The saved list of articles has not been synchronized in two weeks. ' +
@@ -774,70 +777,61 @@ class PocketConsoleTest(unittest.TestCase):
         self.assertEqual(return_val, False)
         mock_input.assert_called_with(new_list)
 
-    @patch('PocketDelDupes.exit_strategy')
-    @patch('PocketDelDupes.try_again')
-    @patch('PocketDelDupes.tags_editing')
-    @patch('PocketDelDupes.view_items')
-    @patch('PocketDelDupes.delete_items')
-    @patch('PocketDelDupes.add_items')
-    @patch('PocketDelDupes.del_dupes')
-    @patch('PocketDelDupes.clean_db')
-    @patch('PocketDelDupes.url_test')
+    def test_prepare_articles_dict(self):
+        pass
+
+    def test_get_starting_side(self):
+        pass
+
+    def test_article_retrieval_quantity(self):
+        pass
+
+    def test_retrieve_articles(self):
+        pass
+
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
-    @patch('PocketDelDupes.load_articles_from_disk')
-    @patch('PocketDelDupes.pocket_authenticate')
-    @patch('PocketDelDupes.create_arg_parser')
-    def test_main(self, mock_parser, mock_authenticate, mock_load, mock_instance, mock_url_test, mock_clean,
-                  mock_del_dupes, mock_add, mock_delete, mock_view, mock_tags, mock_try_again, mock_exit):
+    def test_main(self, mock_instance):
+        in_mocks = {'create_arg_parser': DEFAULT, 'pocket_authenticate': DEFAULT, 'retrieve_articles': DEFAULT,
+                    'del_dupes': DEFAULT, 'save_articles_to_disk': DEFAULT, 'add_items': DEFAULT,
+                    'delete_items': DEFAULT, 'view_items': DEFAULT, 'tags_editing': DEFAULT, 'exit_strategy': DEFAULT}
+        with patch.multiple('PocketDelDupes', **in_mocks) as mocks:
+            def reset_mocks(m):
+                for x in m:
+                    m[x].reset_mock()
 
-        mock_parser.return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
-        mock_authenticate.return_value = mock_instance
-        mock_load.return_value = None
-        mock_instance.get.return_value = (
-            {'list': self.example_articles, 'since': str(int(time.time()))}, {'header': 'HTTP'})
-        test_master_article_dictionary = self.example_articles_cleaned
-        mock_clean.return_value = test_master_article_dictionary
-        mock_del_dupes.return_value = self.example_articles_cleaned
-        mock_try_again.return_value = 'y'
-        mock_exit.side_effect = SystemExit
+            def assertion_tests(side_effects):
+                mocks['create_arg_parser'].return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
+                mocks['create_arg_parser'].reset_mock()
+                mocks['pocket_authenticate'].return_value = mock_instance
+                mocks['retrieve_articles'].return_value = (self.example_articles, str(int(time.time())))
+                mocks['del_dupes'].return_value = self.example_articles_cleaned
+                mocks['exit_strategy'].side_effect = SystemExit
 
-        with patch('PocketDelDupes.input') as mock_input:
-            mock_input.side_effect = ['o', '', 'y', 'a', 'd', 'v', 't', 'x', 'e']
-            with self.assertRaises(SystemExit):
-                PocketDelDupes.main()
+                with patch('PocketDelDupes.input') as mock_input:
+                    mock_input.side_effect = side_effects
+                    with self.assertRaises(SystemExit):
+                        PocketDelDupes.main()
 
-        self.assertEqual(mock_parser.call_count, 2)
-        mock_authenticate.assert_called_once()
-        mock_instance.get.assert_called_once()
-        mock_instance.get.assert_called_with(detailType='complete', sort='oldest')
-        mock_url_test.assert_called_once()
-        mock_clean.assert_called_with(self.example_articles)
-        mock_del_dupes.assert_called_with(test_master_article_dictionary, mock_instance)
-        mock_add.assert_called_with(mock_instance)
-        mock_delete.assert_called_with(mock_instance, test_master_article_dictionary)
-        mock_view.assert_called_with(test_master_article_dictionary)
-        mock_tags.assert_called_with(mock_instance, test_master_article_dictionary)
-        mock_try_again.assert_called_once()
-        mock_exit.assert_called()
+                self.assertEqual(mocks['create_arg_parser'].call_count, 1)
+                mocks['pocket_authenticate'].assert_called_once()
+                mocks['save_articles_to_disk'].assert_called_once()
+                if side_effects[0] == 'y':
+                    mocks['del_dupes'].assert_called_with(self.example_articles, mock_instance)
+                    article_list = self.example_articles_cleaned
+                else:
+                    mocks['del_dupes'].assert_not_called()
+                    article_list = self.example_articles
+                mocks['add_items'].assert_called_with(mock_instance)
+                mocks['delete_items'].assert_called_with(mock_instance, article_list)
+                mocks['view_items'].assert_called_with(article_list)
+                mocks['tags_editing'].assert_called_with(mock_instance, article_list)
+                mocks['exit_strategy'].assert_called()
 
-        with patch('PocketDelDupes.input') as mock_input:
-            mock_input.side_effect = ['n', '', 'y', 'a', 'd', 'v', 't', 'x', 'e']
-            with self.assertRaises(SystemExit):
-                PocketDelDupes.main()
-
-        self.assertEqual(mock_parser.call_count, 2)
-        mock_authenticate.assert_called_once()
-        mock_instance.get.assert_called_once()
-        mock_instance.get.assert_called_with(detailType='complete', sort='oldest')
-        mock_url_test.assert_called_once()
-        mock_clean.assert_called_with(self.example_articles)
-        mock_del_dupes.assert_called_with(test_master_article_dictionary, mock_instance)
-        mock_add.assert_called_with(mock_instance)
-        mock_delete.assert_called_with(mock_instance, test_master_article_dictionary)
-        mock_view.assert_called_with(test_master_article_dictionary)
-        mock_tags.assert_called_with(mock_instance, test_master_article_dictionary)
-        mock_try_again.assert_called_once()
-        mock_exit.assert_called()
+            assertion_tests(['y', 'a', 'd', 'v', 't', 'x', 'y', 'e'])
+            reset_mocks(mocks)
+            assertion_tests(['n', 'a', 'd', 'v', 't', 'x', 'y', 'e'])
+            reset_mocks(mocks)
+            assertion_tests(['n', 'a', 'd', 'v', 't', 'x', 'n'])
 
 
 if __name__ == '__main__':  # pragma: no cover

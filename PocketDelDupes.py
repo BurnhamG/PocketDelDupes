@@ -547,10 +547,11 @@ def retrieve_articles(instance):
     if not items_list and not get_all:
         items_list = instance.get(**ret_args)
     elif not items_list and get_all:
+        items_list = []
         while length == ret_args['count']:
-            items_list.append(instance.get(**ret_args))
+            items_list.append(instance.get(**ret_args)[0])
             ret_args['offset'] += ret_args['count']
-            length = len(items_list[-1][0]['list'])
+            length = len(items_list[-1]['list'])
     elif not get_all and items_list:
         if check_sync_date(items_list[1]):
             items_list = instance.get(**ret_args)
@@ -578,8 +579,8 @@ def main():
     master_article_dictionary, retrieval_time = retrieve_articles(pocket_instance)
 
     # Option to check for and delete duplicates
-    check_dupes = input('Would you like to check for and delete any duplicate articles [y]es/[n]o? ')
-    if check_dupes.lower() == 'y':
+    check_dupes = input('Would you like to check for and delete any duplicate articles? [y]es/[n]o ').lower()
+    if check_dupes == 'y':
         print()
         master_article_dictionary = del_dupes(master_article_dictionary, pocket_instance)
 
