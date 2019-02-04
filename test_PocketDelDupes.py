@@ -118,30 +118,32 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.Pocket.get_auth_url', spec=PocketDelDupes.Pocket.get_auth_url)
     @patch('PocketDelDupes.Pocket.get_request_token', spec=PocketDelDupes.Pocket.get_request_token)
     def test_authenticate(self, mock_pocket_request, mock_pocket_auth, mock_browser, mock_access_token):
-        test_con_key = 'key'
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.return_value = ''
+            test_con_key = 'key'
 
-        req_token = '987zyxwv-ut65-s432-1r0q-p1o23n'
-        mock_pocket_request.return_value = req_token
+            req_token = '987zyxwv-ut65-s432-1r0q-p1o23n'
+            mock_pocket_request.return_value = req_token
 
-        fake_auth_url = ('https://getpocket.com/auth/authorize?request_token='
-                         f'{req_token}&redirect_uri=https://example.com')
+            fake_auth_url = ('https://getpocket.com/auth/authorize?request_token='
+                             f'{req_token}&redirect_uri=https://example.com')
 
-        mock_pocket_auth.return_value = fake_auth_url
+            mock_pocket_auth.return_value = fake_auth_url
 
-        mock_browser.return_value = True
+            mock_browser.return_value = True
 
-        acc_token = '1a234b56-7c89-d098-e765-f4g321'
-        mock_access_token.return_value = acc_token
+            acc_token = '1a234b56-7c89-d098-e765-f4g321'
+            mock_access_token.return_value = acc_token
 
-        PocketDelDupes.pocket_authenticate(test_con_key)
+            PocketDelDupes.pocket_authenticate(test_con_key)
 
-        mock_pocket_request.assert_called()
-        mock_pocket_request.assert_called_with(test_con_key, redirect_uri='https://ddg.gg')
-        mock_pocket_auth.assert_called()
-        mock_pocket_auth.assert_called_with(req_token, redirect_uri='https://ddg.gg')
-        mock_browser.assert_called()
-        mock_access_token.assert_called()
-        mock_access_token.assert_called_with(test_con_key, req_token)
+            mock_pocket_request.assert_called()
+            mock_pocket_request.assert_called_with(test_con_key, redirect_uri='https://ddg.gg')
+            mock_pocket_auth.assert_called()
+            mock_pocket_auth.assert_called_with(req_token, redirect_uri='https://ddg.gg')
+            mock_browser.assert_called()
+            mock_access_token.assert_called()
+            mock_access_token.assert_called_with(test_con_key, req_token)
 
     def test_arg_parser_creation(self):
         test_parser = PocketDelDupes.create_arg_parser()
@@ -278,49 +280,34 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
     def test_del_dupes(self, mock_instance):
 
-        with patch('PocketDelDupes.input') as mock_input:
-            dup_arts = dict(self.duplicate_articles)
-            mock_input.side_effect = ['n']
+        with patch.multiple('PocketDelDupes', **{'input': DEFAULT, 'print': DEFAULT}) as mocks:
+            for input_val in [['n'], ['y'], ['x', 'y', 'y'], [''], ['w', 'n'], ['']]:
+                dup_arts = dict(self.duplicate_articles)
+                mock_instance.reset_mock()
+                mocks['input'].side_effect = input_val
+                mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
+                if 'n' in input_val[::2] or '' in input_val[::2]:
+                    self.assertEqual(mock_filtered_dict, self.duplicate_articles)
+                    mock_instance.delete.assert_not_called()
+                    mock_instance.commit.assert_not_called()
+                elif 'n' in input_val[1::2]:
+                    self.assertEqual(mock_filtered_dict, None)
+                    mock_instance.delete.assert_not_called()
+                    mock_instance.commit.assert_not_called()
+                else:
+                    self.assertEqual(mock_filtered_dict, self.example_articles, msg=f"{input_val}")
+                    mock_instance.delete.assert_called()
+                    mock_instance.commit.assert_called()
+
+            dup_arts = dict(self.example_articles_cleaned)
+            mocks['input'].reset_mock()
+            mock_instance.reset_mock()
+            mocks['input'].side_effect = ['']
             mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
-            self.assertEqual(mock_filtered_dict, self.duplicate_articles)
+            self.assertEqual(mock_filtered_dict, self.example_articles_cleaned)
             mock_instance.delete.assert_not_called()
             mock_instance.commit.assert_not_called()
-
-            dup_arts = dict(self.duplicate_articles)
-            mock_input.reset_mock()
-            mock_instance.reset_mock()
-            mock_input.side_effect = ['y']
-            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
-            self.assertEqual(mock_filtered_dict, self.example_articles)
-            mock_instance.delete.assert_called()
-            mock_instance.commit.assert_called()
-
-            dup_arts = dict(self.duplicate_articles)
-            mock_input.reset_mock()
-            mock_instance.reset_mock()
-            mock_input.side_effect = ['x', 'y', 'y']
-            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
-            self.assertEqual(mock_filtered_dict, self.example_articles)
-            mock_instance.delete.assert_called()
-            mock_instance.commit.assert_called()
-
-            dup_arts = dict(self.duplicate_articles)
-            mock_input.reset_mock()
-            mock_instance.reset_mock()
-            mock_input.side_effect = ['']
-            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
-            self.assertEqual(mock_filtered_dict, self.duplicate_articles)
-            mock_instance.delete.assert_not_called()
-            mock_instance.commit.assert_not_called()
-
-            dup_arts = dict(self.duplicate_articles)
-            mock_input.reset_mock()
-            mock_instance.reset_mock()
-            mock_input.side_effect = ['w', 'n']
-            mock_filtered_dict = PocketDelDupes.del_dupes(dup_arts, mock_instance)
-            self.assertEqual(mock_filtered_dict, None)
-            mock_instance.delete.assert_not_called()
-            mock_instance.commit.assert_not_called()
+            mocks['print'].assert_called_with('No duplicates found!\n')
 
     @patch('PocketDelDupes.input', return_value='items to edit.txt')
     def test_items_to_manipulate_text_file(self, mock_input):
