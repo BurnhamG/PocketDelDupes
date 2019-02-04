@@ -1,4 +1,5 @@
 import datetime
+import random
 import time
 import unittest
 from unittest.mock import DEFAULT, patch
@@ -7,6 +8,19 @@ import PocketDelDupes
 
 
 class PocketConsoleTest(unittest.TestCase):
+
+    @staticmethod
+    def create_large_dict(items):
+        i = 1
+        while i <= items:
+            yield i, {'item_id': str(i), 'resolved_id': str(i), 'given_url': f'http://www.example{i}.com',
+                      'given_title': f'Example Title {i}', 'favorite': '0', 'status': '0',
+                      'time_added': '1461738821', 'time_updated': '1522220665', 'time_read': '0',
+                      'time_favorited': '0', 'sort_id': i - 1, 'resolved_title': f'Example Title {i}',
+                      'resolved_url': f'http://www.example{i}.com',
+                      'word_count': str(int((i * (random.random() * 10 if i < 1000 else random.random())))),
+                      }
+            i += 1
 
     def setUp(self):
         def replace_print(*args, **kwargs):
@@ -93,14 +107,17 @@ class PocketConsoleTest(unittest.TestCase):
                   }
         }
 
+        self.large_article_list = {}
+        for k, v in self.create_large_dict(15000):
+            self.large_article_list[k] = v
+
         PocketDelDupes.print = replace_print
 
-    @patch('PocketDelDupes.time', return_value=None)
     @patch('PocketDelDupes.Pocket.get_access_token', spec=PocketDelDupes.Pocket.get_access_token)
     @patch('PocketDelDupes.webbrowser.open', spec=PocketDelDupes.webbrowser.open)
     @patch('PocketDelDupes.Pocket.get_auth_url', spec=PocketDelDupes.Pocket.get_auth_url)
     @patch('PocketDelDupes.Pocket.get_request_token', spec=PocketDelDupes.Pocket.get_request_token)
-    def test_authenticate(self, mock_pocket_request, mock_pocket_auth, mock_browser, mock_access_token, mock_time):
+    def test_authenticate(self, mock_pocket_request, mock_pocket_auth, mock_browser, mock_access_token):
         test_con_key = 'key'
 
         req_token = '987zyxwv-ut65-s432-1r0q-p1o23n'
@@ -135,83 +152,106 @@ class PocketConsoleTest(unittest.TestCase):
     def test_output_bad(self, mock_print):
         mo = unittest.mock.mock_open()
         example_list = [1, 2, 3, 4]
-        with patch('PocketDelDupes.open', mo, create=True):
+        with patch('PocketDelDupes.open', mo):
             PocketDelDupes.output_bad(example_list, True, True)
             mo.assert_called_once()
-            handle = mo()
-            handle.writelines.assert_called_once()
+            mo().writelines.assert_called_once()
             mock_print.assert_called()
             mo.reset_mock()
             mock_print.reset_mock()
 
             PocketDelDupes.output_bad(example_list, False, True)
             mo.assert_not_called()
-            handle = mo()
-            handle.writelines.assert_not_called()
+            mo().writelines.assert_not_called()
             mock_print.assert_called()
             mo.reset_mock()
             mock_print.reset_mock()
 
             PocketDelDupes.output_bad(example_list, True, False)
             mo.assert_called_once()
-            handle = mo()
-            handle.writelines.assert_called_once()
+            mo().writelines.assert_called_once()
+            mock_print.assert_not_called()
+            mo.reset_mock()
+            mock_print.reset_mock()
+
+            PocketDelDupes.output_bad(example_list, False, False)
+            mo.assert_not_called()
+            mo().writelines.assert_not_called()
             mock_print.assert_not_called()
 
     @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='p')
-    def test_url_test_print(self, mock_input, mock_output):
-        PocketDelDupes.url_test(self.example_bad_article_list)
-        mock_output.assert_called_with(self.example_bad_article_list, save_bad=False, print_bad=True)
+    @patch('PocketDelDupes.input')
+    def test_url_test(self, mock_input, mock_output):
+        id_list = ['https://getpocket.com/a/read/' + self.example_bad_article_list['1']['item_id'],
+                   'https://getpocket.com/a/read/' + self.example_bad_article_list['2']['item_id']]
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='p')
-    def test_url_test_good(self, mock_input, mock_output):
+        mock_input.side_effect = ['p', 'n']
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=False, print_bad=True)
+
+        mock_output.reset_mock()
+
         PocketDelDupes.url_test(self.example_articles)
         mock_output.assert_not_called()
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='s')
-    def test_url_test_save(self, mock_input, mock_output):
-        PocketDelDupes.url_test(self.example_bad_article_list)
-        mock_output.assert_called_with(self.example_bad_article_list, save_bad=True, print_bad=False)
+        mock_output.reset_mock()
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='n')
-    def test_url_test_neither(self, mock_input, mock_output):
+        mock_input.side_effect = ['s', 'y']
+        PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=False)
+
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['n', 'y']
         PocketDelDupes.url_test(self.example_bad_article_list)
         mock_output.assert_not_called()
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='b')
-    def test_url_test_both(self, mock_input, mock_output):
-        PocketDelDupes.url_test(self.example_bad_article_list)
-        mock_output.assert_called_with(self.example_bad_article_list, save_bad=True, print_bad=True)
+        mock_output.reset_mock()
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input')
-    def test_url_test_no_retry(self, mock_input, mock_output):
+        mock_input.side_effect = ['b', 'y']
+        PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=True)
+
+        mock_output.reset_mock()
+
         mock_input.side_effect = ['q', 'n']
-        PocketDelDupes.url_test(self.example_bad_article_list)
-        mock_output.assert_not_called()
-
-    @patch('PocketDelDupes.exit_strategy')
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input', return_value='')
-    def test_url_test_exit(self, mock_input, mock_output, mock_exit):
-        mock_exit.side_effect = SystemExit
         with self.assertRaises(SystemExit):
             PocketDelDupes.url_test(self.example_bad_article_list)
         mock_output.assert_not_called()
-        mock_exit.assert_called()
-        self.assertRaises(SystemExit, mock_exit)
 
-    @patch('PocketDelDupes.output_bad')
-    @patch('PocketDelDupes.input')
-    def test_url_test_user_error(self, mock_input, mock_output):
-        mock_input.side_effect = ['x', 'y', 'b']
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['']
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_not_called()
+
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['x', 'y', 'b', 'y']
         PocketDelDupes.url_test(self.example_bad_article_list)
-        mock_output.assert_called_with(self.example_bad_article_list, save_bad=True, print_bad=True)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=True)
+
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['x', 'y', 'b', 'x', 'y', 'y']
+        PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=True)
+
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['x', 'y', 'b', 'x', 'y', 'n']
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=True)
+
+        mock_output.reset_mock()
+
+        mock_input.side_effect = ['x', 'y', 'b', 'x', 'n']
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.url_test(self.example_bad_article_list)
+        mock_output.assert_called_with(id_list, save_bad=True, print_bad=True)
 
     def test_filterurl(self):
         urls = ['www.example.com/test', 'www.example.com/test?utm=referrer', 'www.example.com/test?mc=referrer',
@@ -395,7 +435,6 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items(self, mock_print_info):
         with patch('PocketDelDupes.input') as mock_input:
-
             mock_input.side_effect = ['y', 'all']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '1', 'y')
@@ -464,7 +503,6 @@ class PocketConsoleTest(unittest.TestCase):
     @patch('PocketDelDupes.print_items_info')
     def test_display_items_retry(self, mock_print_info, mock_try):
         with patch('PocketDelDupes.input') as mock_input:
-
             mock_input.side_effect = ['x', '', '1', '', '', ]
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_called()
@@ -641,6 +679,7 @@ class PocketConsoleTest(unittest.TestCase):
                 sorted(self.example_articles.items(), key=lambda x: x[1]['time_added'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
+    # noinspection PyTypeChecker
     @patch('PocketDelDupes.display_items')
     def test_view_items_words(self, mock_display):
         with patch('PocketDelDupes.input') as mock_input:
@@ -654,10 +693,12 @@ class PocketConsoleTest(unittest.TestCase):
 
             mock_input.side_effect = ['l', 'b']
             PocketDelDupes.view_items(self.example_articles)
+            # noinspection PyTypeChecker,PyTypeChecker
             resolved_title_sorted_dict = dict(
                 sorted(self.example_articles.items(), key=lambda x: x[1]['resolved_title'], reverse=True))
             mock_display.assert_called_with(resolved_title_sorted_dict)
 
+    # noinspection PyTypeChecker
     @patch('PocketDelDupes.display_items')
     def test_view_items_url(self, mock_display):
         with patch('PocketDelDupes.input') as mock_input:
@@ -743,8 +784,22 @@ class PocketConsoleTest(unittest.TestCase):
             mo.assert_called_with('article_list', 'rb')
             mock_pickle.loads.assert_called()
 
-    def test_save_articles_to_disk(self):
-        pass
+    @patch('PocketDelDupes.os')
+    @patch('PocketDelDupes.pickle')
+    def test_save_articles_to_disk(self, mock_pickle, mock_os):
+        mo = unittest.mock.mock_open()
+        with patch('PocketDelDupes.open', mo):
+            mock_os.path.exists.return_value = True
+            PocketDelDupes.save_articles_to_disk(self.example_articles, str(int(time.time())))
+            mock_os.replace.assert_called_once()
+            mock_pickle.dump.assert_called_once()
+
+            mock_pickle.reset_mock()
+            mock_os.reset_mock()
+            mock_os.path.exists.return_value = False
+            PocketDelDupes.save_articles_to_disk(self.example_articles, str(int(time.time())))
+            mock_os.replace.assert_not_called()
+            mock_pickle.dump.assert_called_once()
 
     @patch('PocketDelDupes.input')
     def test_check_sync_date(self, mock_input):
@@ -777,17 +832,204 @@ class PocketConsoleTest(unittest.TestCase):
         self.assertEqual(return_val, False)
         mock_input.assert_called_with(new_list)
 
-    def test_prepare_articles_dict(self):
-        pass
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'y', 'y']
+
+        test_date = datetime.datetime.now() - datetime.timedelta(days=15)
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        self.assertEqual(return_val, True)
+        mock_input.assert_called_with(old_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'y', 'y']
+
+        test_date = datetime.datetime.now() - datetime.timedelta(days=12)
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        self.assertEqual(return_val, True)
+        mock_input.assert_called_with(new_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'n']
+
+        test_date = datetime.datetime.now() - datetime.timedelta(days=15)
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.check_sync_date(test_date.timestamp())
+        mock_input.assert_any_call(old_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'n']
+
+        test_date = datetime.datetime.now() - datetime.timedelta(days=12)
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.check_sync_date(test_date.timestamp())
+        self.assertEqual(return_val, True)
+        mock_input.assert_any_call(new_list)
+
+    @patch('PocketDelDupes.clean_db')
+    @patch('PocketDelDupes.url_test')
+    def test_prepare_articles_dict(self, mock_url_test, mock_clean_db):
+        mock_clean_db.return_value = self.example_articles_cleaned
+        sync_time = str(int(time.time()))
+        ret_val = PocketDelDupes.prepare_articles_dict(({'list': self.example_articles, 'since': sync_time},
+                                                        {'header': 'HTTP'}))
+        mock_url_test.assert_called()
+        mock_clean_db.assert_called()
+        self.assertEqual(ret_val, (sync_time, self.example_articles_cleaned))
 
     def test_get_starting_side(self):
-        pass
+        start_args = {'detailType': 'complete'}
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['']
+            result = PocketDelDupes.get_starting_side(start_args)
+            self.assertEqual(result, {'detailType': 'complete', 'sort': 'newest'})
+
+            mock_input.side_effect = ['n']
+            result = PocketDelDupes.get_starting_side(start_args)
+            self.assertEqual(result, {'detailType': 'complete', 'sort': 'newest'})
+
+            mock_input.side_effect = ['o']
+            result = PocketDelDupes.get_starting_side(start_args)
+            self.assertEqual(result, {'detailType': 'complete', 'sort': 'oldest'})
+
+            mock_input.side_effect = ['x', 'y', 'o']
+            result = PocketDelDupes.get_starting_side(start_args)
+            self.assertEqual(result, {'detailType': 'complete', 'sort': 'oldest'})
+
+            mock_input.side_effect = ['x', 'n']
+            with self.assertRaises(SystemExit):
+                PocketDelDupes.get_starting_side(start_args)
 
     def test_article_retrieval_quantity(self):
-        pass
+        start_args = {'detailType': 'complete', 'sort': 'oldest'}
+        with patch('PocketDelDupes.input') as mock_input:
+            mock_input.side_effect = ['all']
+            result = PocketDelDupes.article_retrieval_quantity(start_args)
+            self.assertEqual(result, 'all')
 
-    def test_retrieve_articles(self):
-        pass
+            mock_input.side_effect = ['1']
+            result = PocketDelDupes.article_retrieval_quantity(start_args)
+            self.assertEqual(result, 1)
+
+            mock_input.side_effect = ['x', 'y', '1']
+            result = PocketDelDupes.article_retrieval_quantity(start_args)
+            self.assertEqual(result, 1)
+
+            mock_input.side_effect = ['x', 'n']
+            with self.assertRaises(SystemExit):
+                PocketDelDupes.article_retrieval_quantity(start_args)
+
+    @patch('PocketDelDupes.article_retrieval_quantity')
+    @patch('PocketDelDupes.get_starting_side')
+    @patch('PocketDelDupes.load_articles_from_disk')
+    @patch('PocketDelDupes.Pocket')
+    def test_retrieve_articles(self, mock_instance, mock_load, mock_start, mock_quantity):
+        sync_time = str(int(time.time()))
+
+        def set_mock_start():
+            mock_start.return_value = {'detailType': 'complete', 'sort': 'oldest'}
+
+        def set_instance_response(value='all'):
+            divide_mod = 0
+            responses = []
+            large_art_length = len(self.large_article_list)
+            if value == 'all':
+                value = 5000
+            if value < 5000 or value >= large_art_length:
+                divide = 1
+            else:
+                divide_mod = large_art_length % value
+                divide = large_art_length / value
+                if divide_mod != 0:
+                    divide += 1
+
+            loop = int(divide)
+
+            for x in range(loop):
+                responses.append(
+                    ({'list': {z: k for i, (z, k) in enumerate(self.large_article_list.items()) if
+                               (value * x) <= i < (value * x * 2 if x > 0 else value)}, 'since': sync_time},
+                     {'header': 'HTTP'})
+                )
+            if divide_mod == 0:
+                responses.append(
+                    ({'list': {}, 'since': sync_time},
+                     {'header': 'HTTP'})
+                )
+
+            return tuple(responses)
+
+        with patch('PocketDelDupes.input') as mock_input:
+            for num in [1, 50, 100, 500, 1025, 5173, 12863, 14928, 15184, 23497, 25530, 'all']:
+                mock_load.return_value = None
+                set_mock_start()
+                mock_quantity.return_value = num
+                get_resp = set_instance_response(mock_quantity.return_value)
+                mock_instance.get.side_effect = get_resp
+                clean_arts = PocketDelDupes.clean_db(get_resp[0][0]['list'])
+                result = PocketDelDupes.retrieve_articles(mock_instance)
+                self.assertEqual(result, (sync_time, clean_arts))
+
+                mock_instance.reset_mock()
+
+                mock_load.return_value = (sync_time, clean_arts)
+                set_mock_start()
+                mock_quantity.return_value = num
+                mock_input.side_effect = ['n']
+                result = PocketDelDupes.retrieve_articles(mock_instance)
+                if num == 'all':
+                    expected_result = {k: v for k, v in clean_arts.items()}
+                else:
+                    expected_result = {k: v for k, v in clean_arts.items() if int(k) <= num}
+
+                self.assertEqual(result, (sync_time, expected_result), msg=f"Not equal when num is {num}.")
+                mock_instance.get.assert_not_called()
+
+                mock_instance.reset_mock()
+
+                mock_load.return_value = (sync_time, clean_arts)
+                set_mock_start()
+                mock_quantity.return_value = num
+                get_resp = set_instance_response(mock_quantity.return_value)
+                mock_instance.get.side_effect = get_resp
+                mock_input.side_effect = ['y']
+                result = PocketDelDupes.retrieve_articles(mock_instance)
+                if num == 'all':
+                    expected_result = {k: v for k, v in clean_arts.items()}
+                else:
+                    expected_result = {k: v for k, v in clean_arts.items() if int(k) <= num}
+
+                self.assertEqual(result, (sync_time, expected_result), msg=f"Not equal when num is {num}.")
+
+            mock_load.return_value = None
+            set_mock_start()
+            mock_quantity.return_value = 57
+            mock_input.side_effect = 'y'
+            get_resp = set_instance_response(mock_quantity.return_value)
+            mock_instance.get.side_effect = get_resp
+
+            # Very large tests - not for normal testing!
+            # self.large_article_list = {}
+            # for k, v in self.create_large_dict(1000000):
+            #     self.large_article_list[k] = v
+            #
+            # for num in [1000, 5000, 10000, 15000, 20000, 25000, 50000, 100000, 500000, 1000000, 5000000, 10000000]:
+            #     mock_load.return_value = None
+            #     mock_start.return_value = {'detailType': 'complete', 'sort': 'oldest'}
+            #     mock_quantity.return_value = num
+            #     get_resp = set_instance_response(mock_quantity.return_value)
+            #     mock_instance.get.side_effect = get_resp
+            #     clean_arts = PocketDelDupes.clean_db(get_resp[0][0]['list'])
+            #     # mock_input.side_effect = ['y']
+            #     result = PocketDelDupes.retrieve_articles(mock_instance)
+            #     self.assertEqual(result, (sync_time, clean_arts))
+            #
+            #     mock_instance.reset_mock()
+
+        mock_load.return_value = (sync_time, self.example_articles_cleaned)
+        mock_start.return_value = {'detailType': 'complete', 'sort': 'oldest'}
+        mock_quantity.return_value = 0
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.retrieve_articles(mock_instance)
 
     @patch('PocketDelDupes.Pocket', autospec=PocketDelDupes.Pocket)
     def test_main(self, mock_instance):
@@ -803,7 +1045,7 @@ class PocketConsoleTest(unittest.TestCase):
                 mocks['create_arg_parser'].return_value = PocketDelDupes.create_arg_parser().parse_args(['key'])
                 mocks['create_arg_parser'].reset_mock()
                 mocks['pocket_authenticate'].return_value = mock_instance
-                mocks['retrieve_articles'].return_value = (self.example_articles, str(int(time.time())))
+                mocks['retrieve_articles'].return_value = (str(int(time.time())), self.example_articles)
                 mocks['del_dupes'].return_value = self.example_articles_cleaned
                 mocks['exit_strategy'].side_effect = SystemExit
 

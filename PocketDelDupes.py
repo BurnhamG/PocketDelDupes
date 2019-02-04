@@ -63,11 +63,11 @@ def output_bad(list_of_bad, save_bad=False, print_bad=False):
 
 
 def url_test(art_list):
-    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires.
-    TODO: Give the user the option to continue, ignoring the bad articles"""
+    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
     var_error = 0
     bad_list = []
     option = ''
+    to_continue = ''
     to_print = False
     to_save = False
     processing_options = ['b', 'n', 'p', 's']
@@ -86,7 +86,7 @@ def url_test(art_list):
                 exit_strategy()
             elif option not in processing_options:
                 if not try_again():
-                    return
+                    exit_strategy()
                 else:
                     option = ''
             elif option == 'n':
@@ -97,7 +97,18 @@ def url_test(art_list):
                 to_save = True
             elif option == 'b':
                 to_print = to_save = True
-            output_bad(art_list, save_bad=to_save, print_bad=to_print)
+            output_bad(bad_list, save_bad=to_save, print_bad=to_print)
+        while not to_continue:
+            to_continue = input("Would you like to continue the program? [Y]es/[N]o").lower()
+            if to_continue == 'y':
+                return
+            elif to_continue == 'n':
+                exit_strategy()
+            else:
+                if not try_again():
+                    exit_strategy()
+                else:
+                    to_continue = ''
 
 
 def filterurl(url, char):
@@ -450,14 +461,14 @@ def load_articles_from_disk():
     else:
         with open('article_list', 'rb') as fin:
             sync_and_articles = pickle.loads(fin.read())
-    return sync_and_articles[1], sync_and_articles[0]
+    return sync_and_articles[0], sync_and_articles[1]
 
 
 def save_articles_to_disk(article_dict, last_sync_date):
     if os.path.exists('article_list'):
         os.replace('article_list', 'article_list.bak')
     with open('article_list', 'wb') as fout:
-        pickle.dump([ last_sync_date, article_dict], fout)
+        pickle.dump([last_sync_date, article_dict], fout)
 
 
 def check_sync_date(sync_date):
@@ -487,7 +498,7 @@ def prepare_articles_dict(items):
     url_test(full_list)
     # Clean and parse data
     cleaned_dict = clean_db(full_list)
-    return cleaned_dict, retrieval_time
+    return retrieval_time, cleaned_dict
 
 
 def get_starting_side(ret_args):
@@ -508,18 +519,17 @@ def get_starting_side(ret_args):
                 start_from = ''
 
 
-def article_retrieval_quantity(ret_args):
+def article_retrieval_quantity(sort_type):
     arts_to_retrieve = ''
     while not arts_to_retrieve:
         arts_to_retrieve = input(
-            f"How many of the {ret_args['sort']} articles would you like to get? (Default is all) ").lower()
+            f"How many of the {sort_type} articles would you like to get? (Default is all, 0 exits the program) ").lower()
         if arts_to_retrieve == '' or arts_to_retrieve == 'all':
             return 'all'
         else:
             try:
                 arts_to_retrieve = int(arts_to_retrieve)
-                ret_args['count'] = arts_to_retrieve
-                return ret_args
+                return arts_to_retrieve
             except ValueError:
                 if not try_again():
                     exit_strategy()
@@ -530,19 +540,19 @@ def article_retrieval_quantity(ret_args):
 def retrieve_articles(instance):
     get_all = False
     art_dict = None
-    ret_time = None
     items_list = load_articles_from_disk()
     ret_args = {'detailType': 'complete'}
     ret_args = get_starting_side(ret_args)
-    art_count = article_retrieval_quantity(ret_args)
-    if art_count != 'all':
+    art_count = article_retrieval_quantity(ret_args['sort'])
+    if art_count == 0:
+        exit_strategy()
+    elif art_count != 'all':
         ret_args['count'] = art_count
     else:
         ret_args['count'] = 5000
         ret_args['offset'] = 0
-
-    if 'offset' in ret_args.keys():
         get_all = True
+
     length = ret_args['count']
     if not items_list and not get_all:
         items_list = instance.get(**ret_args)
@@ -553,22 +563,27 @@ def retrieve_articles(instance):
             ret_args['offset'] += ret_args['count']
             length = len(items_list[-1]['list'])
     elif not get_all and items_list:
-        if check_sync_date(items_list[1]):
+        if check_sync_date(items_list[0]):
             items_list = instance.get(**ret_args)
+        else:
+            art_dict = {k: v for i, (k, v) in enumerate(items_list[1].items()) if i < art_count}
     else:
-        if check_sync_date(items_list[1]):
+        if check_sync_date(items_list[0]):
+            items_list = []
             while length == ret_args['count']:
-                items_list.append(instance.get(**ret_args))
+                items_list.append(instance.get(**ret_args)[0])
                 ret_args['offset'] += ret_args['count']
-                length = len(items_list[-1][0]['list'])
+                length = len(items_list[-1]['list'])
 
-    if not art_dict and not ret_time:
-        art_dict, ret_time = prepare_articles_dict(items_list)
-    else:
-        art_dict = items_list[0]
-        ret_time = items_list[1]
+    try:
+        int(items_list[0])
+        ret_time = items_list[0]
+        if not art_dict:
+            art_dict = items_list[1]
+    except TypeError:
+        ret_time, art_dict = prepare_articles_dict(items_list)
 
-    return art_dict, ret_time
+    return ret_time, art_dict
 
 
 def main():
@@ -576,7 +591,7 @@ def main():
     args = parser.parse_args()
     pocket_instance = pocket_authenticate(args.api_key)
 
-    master_article_dictionary, retrieval_time = retrieve_articles(pocket_instance)
+    retrieval_time, master_article_dictionary = retrieve_articles(pocket_instance)
 
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles? [y]es/[n]o ').lower()
