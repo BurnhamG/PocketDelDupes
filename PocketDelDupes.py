@@ -78,7 +78,7 @@ def url_test(art_list):
     if var_error == 1:
         print('There were some articles with bad URLs.')
         while not option:
-            print('Would you like the bad URLs [p]rinted on screen, [s]aved to a file, [n]either, or [b]oth?')
+            print('Would you like the bad URLs [P]rinted on screen, [S]aved to a file, [N]either, or [B]oth?')
             option = input('Leave empty to exit the program: ').lower()
             if option == '':
                 exit_strategy()
@@ -225,7 +225,7 @@ def items_to_manipulate():
 def try_again():
     decision = ''
     while decision == '':
-        decision = input("That is not valid, would you like to try again? (y/n)").lower()
+        decision = input("That is not valid, would you like to try again? (Y/N)").lower()
         if decision == 'n':
             return False
         elif decision == 'y':
@@ -289,7 +289,7 @@ def display_items(articles_in_account):
     view_more_arts = ''
     while not v_url:
         v_url = input("Do you wish to view the URL with the article "
-                      "information (y/n, default n)?").lower()
+                      "information (Y/N, default N)?").lower()
         if v_url == '':
             v_url = 'n'
         elif v_url not in ['y', 'n']:
@@ -299,7 +299,7 @@ def display_items(articles_in_account):
                 v_url = ''
     while not art_disp:
         art_disp = input("How many articles would you like to view "
-                         "at once? Type \"all\" to view all"
+                         "at once? Type \"ALL\" to view all"
                          " articles. "
                          ).lower()
         print()
@@ -430,8 +430,8 @@ def view_items(art_dict):
 def tags_editing(instance, full_list):
     """Allows editing of the tags."""
     print()
-    list_tags = input('Would you like to list tags for all articles? (y/n) ')
-    if list_tags.lower() == 'y':
+    list_tags = input('Would you like to list tags for all articles? (Y/N) ').lower()
+    if list_tags == 'y':
         dict_art_tags = {}
         for item in full_list:
             try:
@@ -448,7 +448,7 @@ def tags_editing(instance, full_list):
             print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x: x[1],
                                                                             reverse=True))
 
-            edit_tags = input('Do you wish to remove all tags? (y/n) ')
+            edit_tags = input('Do you wish to remove all tags? (Y/N) ').lower()
             if edit_tags == 'y':
                 for item_id in full_list:
                     instance.tags_clear(item_id)
@@ -540,8 +540,8 @@ def get_starting_side(ret_args):
 def article_retrieval_quantity(sort_type):
     arts_to_retrieve = ''
     while not arts_to_retrieve:
-        arts_to_retrieve = input(
-            f"How many of the {sort_type} articles would you like to get? (Default is all, 0 exits the program) ").lower()
+        arts_to_retrieve = input(f"How many of the {sort_type} articles would you like to get? "
+                                 "(Default is all, 0 exits the program) ").lower()
         if arts_to_retrieve == '' or arts_to_retrieve == 'all':
             return 'all'
         else:
