@@ -456,7 +456,7 @@ class PocketConsoleTest(unittest.TestCase):
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', '3']
+            mock_input.side_effect = ['n', '3', '']
             PocketDelDupes.display_items(self.duplicate_articles)
             mock_print_info.assert_any_call(self.duplicate_articles, '1', 'n')
             mock_print_info.assert_any_call(self.duplicate_articles, '2', 'n')
@@ -464,13 +464,13 @@ class PocketConsoleTest(unittest.TestCase):
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['n', '2']
+            mock_input.side_effect = ['n', '2', '']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
             mock_print_info.reset_mock()
             mock_input.reset_mock()
-            mock_input.side_effect = ['', '2']
+            mock_input.side_effect = ['', '2', '']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
@@ -510,13 +510,13 @@ class PocketConsoleTest(unittest.TestCase):
 
             mock_print_info.reset_mock()
 
-            mock_input.side_effect = ['x', '', '2']
+            mock_input.side_effect = ['x', '', '2', '']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
             mock_print_info.reset_mock()
 
-            mock_input.side_effect = ['', 'b', '2']
+            mock_input.side_effect = ['', 'b', '2', '']
             PocketDelDupes.display_items(self.example_articles)
             mock_print_info.assert_any_call(self.example_articles, '2', 'n')
 
@@ -771,6 +771,14 @@ class PocketConsoleTest(unittest.TestCase):
             mo.assert_called_with('article_list', 'rb')
             mock_pickle.loads.assert_called()
 
+            mock_pickle.reset_mock()
+
+            mock_pickle.loads.side_effect = EOFError
+            return_val = PocketDelDupes.load_articles_from_disk()
+            mo.assert_called_with('article_list', 'rb')
+            mock_print.assert_called_with('No previous sync detected - proceeding by retrieving articles from website.')
+            self.assertEqual(return_val, None)
+
     @patch('PocketDelDupes.os')
     @patch('PocketDelDupes.pickle')
     def test_save_articles_to_disk(self, mock_pickle, mock_os):
@@ -794,28 +802,49 @@ class PocketConsoleTest(unittest.TestCase):
                     'Would you like to update the saved list? (Y/N) ')
         new_list = ('The saved list of articles has been synchronized in the past two weeks. ' +
                     'Would you like to update the saved list anyway? (Y/N) ')
+        resync_msg = ('By default, we will show you all saved articles. Do you want to update ALL articles?\n'
+                      'WARNING: This will potentially take a long time, as it will retrieve ALL articles from '
+                      'Pocket. (Y/N) ')
+
+        def set_more_list(length):
+            return (f'You are requesting more articles than the {length} that are currently saved.'
+                    ' Would you like to update the saved list? (Y/N) ')
 
         mock_input.return_value = 'y'
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=15)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        list_length = 10
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, True)
         mock_input.assert_called_with(old_list)
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=12)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, True)
         mock_input.assert_called_with(new_list)
+
+        list_length = 4
+        more_list = set_more_list(list_length)
+        test_date = datetime.datetime.now() - datetime.timedelta(days=12)
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
+        self.assertEqual(return_val, True)
+        mock_input.assert_called_with(more_list)
 
         mock_input.return_value = 'n'
 
+        list_length = 10
         test_date = datetime.datetime.now() - datetime.timedelta(days=15)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, False)
         mock_input.assert_called_with(old_list)
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=12)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, False)
         mock_input.assert_called_with(new_list)
 
@@ -823,7 +852,8 @@ class PocketConsoleTest(unittest.TestCase):
         mock_input.side_effect = ['x', 'y', 'y']
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=15)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, True)
         mock_input.assert_called_with(old_list)
 
@@ -831,16 +861,30 @@ class PocketConsoleTest(unittest.TestCase):
         mock_input.side_effect = ['x', 'y', 'y']
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=12)
-        return_val = PocketDelDupes.check_sync_date(test_date.timestamp())
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
         self.assertEqual(return_val, True)
         mock_input.assert_called_with(new_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'y', 'y']
+
+        list_length = 4
+        more_list = set_more_list(list_length)
+        test_date = datetime.datetime.now() - datetime.timedelta(days=12)
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val=5)
+        self.assertEqual(return_val, True)
+        mock_input.assert_called_with(more_list)
 
         mock_input.reset_mock()
         mock_input.side_effect = ['x', 'n']
 
+        list_length = 10
         test_date = datetime.datetime.now() - datetime.timedelta(days=15)
         with self.assertRaises(SystemExit):
-            PocketDelDupes.check_sync_date(test_date.timestamp())
+            PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                           ret_val=5)
         mock_input.assert_any_call(old_list)
 
         mock_input.reset_mock()
@@ -848,9 +892,28 @@ class PocketConsoleTest(unittest.TestCase):
 
         test_date = datetime.datetime.now() - datetime.timedelta(days=12)
         with self.assertRaises(SystemExit):
-            PocketDelDupes.check_sync_date(test_date.timestamp())
-        self.assertEqual(return_val, True)
+            PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                        ret_val=5)
         mock_input.assert_any_call(new_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['x', 'n']
+
+        list_length = 4
+        more_list = set_more_list(list_length)
+        test_date = datetime.datetime.now() - datetime.timedelta(days=12)
+        with self.assertRaises(SystemExit):
+            PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                           ret_val=5)
+        mock_input.assert_any_call(more_list)
+
+        mock_input.reset_mock()
+        mock_input.side_effect = ['y']
+
+        return_val = PocketDelDupes.check_sync_date(test_date.timestamp(), length_of_current_list=list_length,
+                                                    ret_val='all')
+        self.assertEqual(return_val, True)
+        mock_input.assert_called_with(resync_msg)
 
     @patch('PocketDelDupes.clean_db')
     @patch('PocketDelDupes.url_test')
@@ -912,8 +975,8 @@ class PocketConsoleTest(unittest.TestCase):
     def test_retrieve_articles(self, mock_instance, mock_load, mock_start, mock_quantity):
         sync_time = str(int(time.time()))
 
-        def set_mock_start():
-            mock_start.return_value = {'detailType': 'complete', 'sort': 'oldest'}
+        def set_mock_start(start='oldest'):
+            mock_start.return_value = {'detailType': 'complete', 'sort': f'{start}'}
 
         def set_instance_response(value='all'):
             divide_mod = 0
@@ -973,19 +1036,22 @@ class PocketConsoleTest(unittest.TestCase):
 
                 mock_instance.reset_mock()
 
-                mock_load.return_value = (sync_time, clean_arts)
-                set_mock_start()
-                mock_quantity.return_value = num
-                get_resp = set_instance_response(mock_quantity.return_value)
-                mock_instance.get.side_effect = get_resp
-                mock_input.side_effect = ['y']
-                result = PocketDelDupes.retrieve_articles(mock_instance)
-                if num == 'all':
-                    expected_result = {k: v for k, v in clean_arts.items()}
-                else:
-                    expected_result = {k: v for k, v in clean_arts.items() if int(k) <= num}
+                for side in ['newest', 'oldest']:
+                    mock_load.return_value = (sync_time, clean_arts)
+                    set_mock_start(side)
+                    mock_quantity.return_value = num
+                    get_resp = set_instance_response(mock_quantity.return_value)
+                    mock_instance.get.side_effect = get_resp
+                    mock_input.side_effect = ['y']
+                    result = PocketDelDupes.retrieve_articles(mock_instance)
+                    if num == 'all':
+                        expected_result = {k: v for k, v in clean_arts.items()}
+                    else:
+                        expected_result = {k: v for k, v in clean_arts.items() if int(k) <= num}
 
-                self.assertEqual(result, (sync_time, expected_result), msg=f"Not equal when num is {num}.")
+                    self.assertEqual(result, (sync_time, expected_result), msg=f"Not equal when num is {num}.")
+
+                    mock_instance.reset_mock()
 
             mock_load.return_value = None
             set_mock_start()

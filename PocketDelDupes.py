@@ -286,6 +286,7 @@ def exit_strategy():
 def display_items(articles_in_account):
     art_disp = ''
     v_url = ''
+    view_more_arts = ''
     while not v_url:
         v_url = input("Do you wish to view the URL with the article "
                       "information (y/n, default n)?").lower()
@@ -300,38 +301,38 @@ def display_items(articles_in_account):
         art_disp = input("How many articles would you like to view "
                          "at once? Type \"all\" to view all"
                          " articles. "
-                         )
+                         ).lower()
         print()
         if art_disp == 'all':
             for art in articles_in_account:
                 print_items_info(articles_in_account, art, v_url)
         elif art_disp != '':
             try:
-                print(
-                    'Press enter to view another page of articles, or enter any character to return to the main menu.\n'
-                )
-                art_disp = int(art_disp)
-                article = (x for x in articles_in_account)
-                article_groups = int(len(articles_in_account) / art_disp)
-                article_groups_extra = len(articles_in_account) % art_disp
-                for i in range(article_groups):
-                    for count in range(art_disp):
-                        art_id = next(article)
-                        print_items_info(articles_in_account, art_id, v_url)
-                    if article_groups > 1 and i != (article_groups - 1):
+                while not view_more_arts:
+                    art_disp = int(art_disp)
+                    print(
+                        'Press enter to view another page of articles, '
+                        'or any other character to return to the main menu.\n'
+                    )
+                    article = (x for x in articles_in_account)
+                    article_groups = int(len(articles_in_account) / art_disp)
+                    article_groups_extra = len(articles_in_account) % art_disp
+                    for i in range(article_groups):
+                        for count in range(art_disp):
+                            art_id = next(article)
+                            print_items_info(articles_in_account, art_id, v_url)
                         view_more_arts = input()
                         if view_more_arts != '':
                             return
-                        else:
-                            break
-                    else:
+                    print()
+                    if article_groups_extra != 0:
                         print()
-                if article_groups_extra != 0:
-                    print()
-                    for count in range(article_groups_extra):
-                        art_id = next(article)
-                        print_items_info(articles_in_account, art_id, v_url)
-                    print()
+                        for count in range(article_groups_extra):
+                            art_id = next(article)
+                            print_items_info(articles_in_account, art_id, v_url)
+                        print()
+                    view_more_arts = -1
+
             except ValueError:
                 if not try_again():
                     return
@@ -459,16 +460,17 @@ def tags_editing(instance, full_list):
 def load_articles_from_disk():
     def no_load():
         print('No previous sync detected - proceeding by retrieving articles from website.')
-        return
 
     if not os.path.exists('article_list'):
-        return no_load()
+        no_load()
+        return
     else:
         with open('article_list', 'rb') as fin:
             try:
                 sync_and_articles = pickle.loads(fin.read())
             except EOFError:
-                return no_load()
+                no_load()
+                return
 
     return sync_and_articles[0], sync_and_articles[1]
 
@@ -480,13 +482,20 @@ def save_articles_to_disk(article_dict, last_sync_date):
         pickle.dump([last_sync_date, article_dict], fout)
 
 
-def check_sync_date(sync_date):
+def check_sync_date(sync_date, length_of_current_list, ret_val):
     resync = ''
-    if datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
-        resync_string = ('The saved list of articles has not been synchronized in two weeks. ' +
+    if ret_val == 'all':
+        resync_string = ('By default, we will show you all saved articles. Do you want to update ALL articles?\n'
+                         'WARNING: This will potentially take a long time, as it will retrieve ALL articles from '
+                         'Pocket. (Y/N) ')
+    elif datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
+        resync_string = ('The saved list of articles has not been synchronized in two weeks. '
                          'Would you like to update the saved list? (Y/N) ')
+    elif type(ret_val) == int and ret_val > length_of_current_list:
+        resync_string = (f'You are requesting more articles than the {length_of_current_list} that are currently saved.'
+                         ' Would you like to update the saved list? (Y/N) ')
     else:
-        resync_string = ('The saved list of articles has been synchronized in the past two weeks. ' +
+        resync_string = ('The saved list of articles has been synchronized in the past two weeks. '
                          'Would you like to update the saved list anyway? (Y/N) ')
     while not resync:
         resync = input(resync_string).lower()
@@ -572,12 +581,16 @@ def retrieve_articles(instance):
             ret_args['offset'] += ret_args['count']
             length = len(items_list[-1]['list'])
     elif not get_all and items_list:
-        if check_sync_date(items_list[0]):
+        if check_sync_date(items_list[0], len(items_list[1]), art_count):
+            if ret_args['sort'] != 'oldest':
+                ret_args['since'] = items_list[0]
             items_list = instance.get(**ret_args)
         else:
             art_dict = {k: v for i, (k, v) in enumerate(items_list[1].items()) if i < art_count}
     else:
-        if check_sync_date(items_list[0]):
+        if check_sync_date(items_list[0], len(items_list[1]), art_count):
+            if ret_args['sort'] != 'oldest':
+                ret_args['since'] = items_list[0]
             items_list = []
             while length == ret_args['count']:
                 items_list.append(instance.get(**ret_args)[0])
