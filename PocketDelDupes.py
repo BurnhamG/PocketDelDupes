@@ -51,6 +51,7 @@ def pocket_authenticate(con_key):
 
 
 def output_bad(list_of_bad, save_bad=False, print_bad=False):
+    """Saves and/or displays bad articles"""
     if save_bad:
         file_directory = os.path.abspath(os.path.dirname(__file__))
         with open(os.path.join(file_directory, 'BadItems.txt')) as bad:
@@ -61,7 +62,7 @@ def output_bad(list_of_bad, save_bad=False, print_bad=False):
 
 
 def url_test(art_list):
-    """This tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
+    """Tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
     var_error = 0
     bad_list = []
     option = ''
@@ -97,7 +98,7 @@ def url_test(art_list):
                 to_print = to_save = True
             output_bad(bad_list, save_bad=to_save, print_bad=to_print)
         while not to_continue:
-            to_continue = input("Would you like to continue the program? [Y]es/[N]o").lower()
+            to_continue = input('Would you like to continue the program? [Y]es/[N]o').lower()
             if to_continue == 'y':
                 return
             elif to_continue == 'n':
@@ -110,7 +111,7 @@ def url_test(art_list):
 
 
 def filterurl(url, char):
-    """ Function to prune off extra URL options """
+    """Prunes off extra URL options"""
     try:
         return url[:url.index(char)]
     except ValueError:
@@ -118,9 +119,7 @@ def filterurl(url, char):
 
 
 def clean_db(raw_article_list):
-    # This dictionary is a straight copy of the data from Pocket, but
-    # with only the ID and URL properties.
-    # It will also strip all of the extra social media info from each URL.
+    """Returns only the article information and strips all of the extra social media info from each URL."""
     masterdict = {}
     # url_id_dict = {}
 
@@ -157,7 +156,7 @@ def clean_db(raw_article_list):
 
 
 def del_dupes(masterdict, instance):
-    # This dictionary will hold only unique entries
+    """Removes duplicate items from the user's list."""
     ids_to_delete = []
     reversed_dict = {}
     confirm_delete = ''
@@ -171,13 +170,13 @@ def del_dupes(masterdict, instance):
                  len(reversed_dict[k]) > 1}
 
     if len(dupe_dict) > 0:
-        print("Here are the articles that are duplicates:")
+        print('Here are the articles that are duplicates:')
         for i, (k, v) in enumerate(dupe_dict.items()):
             print(i + 1, k, '- IDs: ' + ', '.join(v))
             ids_to_delete.extend(v[:-1] if len(v) > 1 else v[0])
         while not confirm_delete:
-            confirm_delete = input("Do you want to delete these duplicates? "
-                                   "The article(s) most recently added will be removed. (Y/N)").lower()
+            confirm_delete = input('Do you want to delete these duplicates? '
+                                   'The article(s) most recently added will be removed. (Y/N)').lower()
             if confirm_delete == '':
                 confirm_delete = 'n'
             elif confirm_delete not in ['y', 'n']:
@@ -193,7 +192,7 @@ def del_dupes(masterdict, instance):
             instance.commit()
             print(str(len(ids_to_delete)) + ' items were deleted.')
             print('There are now ' + str(len(masterdict)) +
-                  " unique articles in your Pocket list.")
+                  ' unique articles in your Pocket list.')
     else:
         print('No duplicates found!\n')
     return masterdict
@@ -202,17 +201,17 @@ def del_dupes(masterdict, instance):
 def items_to_manipulate():
     """Gets the list of items to act on."""
     while True:
-        items = input("What are the items? "
-                      "Separate URLs or IDs with a comma,"
-                      " or provide the path of a text file with each item "
-                      "on a separate line. Leave empty to return to the main menu. ")
+        items = input('What are the items? '
+                      'Separate URLs or IDs with a comma, '
+                      'or provide the path of a text file with each item '
+                      'on a separate line. Leave empty to return to the main menu. ')
         manip = []
         if items[-4:].lower() == '.txt':
             try:
                 with open(os.path.normcase(items), "r", encoding='utf-8') as al:
-                    manip.append(line.rstrip() for line in al)
+                    manip = [line.rstrip() for line in al]
             except IOError:
-                print("That file does not exist.")
+                print('That file does not exist.')
                 if not try_again():
                     return
         elif items == '':
@@ -223,9 +222,10 @@ def items_to_manipulate():
 
 
 def try_again():
+    """Gives user the option to quit or retry."""
     decision = ''
     while decision == '':
-        decision = input("That is not valid, would you like to try again? (Y/N)").lower()
+        decision = input('That is not valid, would you like to try again? (Y/N)').lower()
         if decision == 'n':
             return False
         elif decision == 'y':
@@ -236,6 +236,7 @@ def try_again():
 
 
 def sort_items(dict_of_articles):
+    """Sorts the items for display."""
     key_list = {'n': 'resolved_title',
                 'd': 'time_added',
                 'l': 'word_count',
@@ -244,15 +245,15 @@ def sort_items(dict_of_articles):
     reverse_opt = False
 
     while True:
-        sort_order = input("What would you like to sort by "
-                           "([N]ame/[D]ate/[L]ength/[U]RL)? ").lower()
+        sort_order = input('What would you like to sort by '
+                           '([N]ame/[D]ate/[L]ength/[U]RL)? ').lower()
         if sort_order not in key_list.keys():
             if not try_again():
                 return
         else:
             while not direction:
-                direction = input("How would you like to sort the articles "
-                                  "([F]orward/[B]ackward)? )").lower()
+                direction = input('How would you like to sort the articles '
+                                  '([F]orward/[B]ackward)? )').lower()
                 if direction == 'b':
                     reverse_opt = True
                 elif direction == 'f':
@@ -269,6 +270,7 @@ def sort_items(dict_of_articles):
 
 
 def print_items_info(all_articles, article, v_url='n'):
+    """Prints information for each article."""
     time_art_added = datetime.datetime.fromtimestamp(int(all_articles[article]['time_added']))
     if v_url == 'y':
         output_end = f"URL is {all_articles[article]['resolved_url']}."
@@ -341,18 +343,18 @@ def display_items(articles_in_account):
 
 
 def validate_url(link):
-    if not link.startswith('//'):
+    if not link.startswith('http') and not link.startswith('//'):
         if link.startswith('/'):
-            link_fixed = f'/{link}'
+            link_fixed = f"/{link}"
         else:
-            link_fixed = f'//{link}'
+            link_fixed = f"//{link}"
     else:
         link_fixed = link
     url = urlparse(link_fixed, scheme='http')
     if validators.url(url.geturl()):
-        return url.geturl(), link
+        return url.geturl()
     else:
-        return False, False
+        return False
 
 
 def get_article_url(id_url_dict, url, link):
@@ -361,8 +363,8 @@ def get_article_url(id_url_dict, url, link):
             return article
         else:
             print(str(link) +
-                  " was not found in the list. "
-                  "Nothing related to this item will be modified.")
+                  ' was not found in the list. '
+                  'Nothing related to this item will be modified.')
             return False
 
 
@@ -374,10 +376,11 @@ def add_items(instance):
         if not add_list:
             return
         elif add_list[0] != -1:
+            print('Processing items...')
             for item in add_list:
-                url, _ = validate_url(item)
+                url = validate_url(item)
                 if url:
-                    instance.add(url)
+                    instance.bulk_add(url)
                     valid_count += 1
                 else:
                     print(f"{item} is not a valid URL, "
@@ -407,7 +410,7 @@ def delete_items(instance, id_url_dict):
                         commit = True
                 else:
                     if re.search(r'[\D]', item):
-                        print(f'{item} is not a valid ID, please limit item IDs to numbers only.')
+                        print(f"{item} is not a valid ID, please limit item IDs to numbers only.")
                         if not try_again():
                             return
                     else:
@@ -427,34 +430,31 @@ def view_items(art_dict):
     return
 
 
-def tags_editing(instance, full_list):
+def tags_editing(instance, full_list, is_offline=False):
     """Allows editing of the tags."""
     print()
-    list_tags = input('Would you like to list tags for all articles? (Y/N) ').lower()
-    if list_tags == 'y':
-        dict_art_tags = {}
-        for item in full_list:
-            try:
-                # print(full_list[item]['tags'])
-                article_tags = full_list[item]['tags']
-                for t in article_tags:
-                    if t not in dict_art_tags.keys():
-                        dict_art_tags[t] = 1
-                    else:
-                        dict_art_tags[t] += 1
-            except KeyError:
-                pass
-        if dict_art_tags:
-            print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x: x[1],
-                                                                            reverse=True))
-
+    dict_art_tags = {}
+    for item in full_list:
+        try:
+            article_tags = full_list[item]['tags']
+            for t in article_tags:
+                if t not in dict_art_tags.keys():
+                    dict_art_tags[t] = 1
+                else:
+                    dict_art_tags[t] += 1
+        except KeyError:
+            pass
+    if dict_art_tags:
+        print("Here are the tags, along with their frequency: ", sorted(dict_art_tags.items(), key=lambda x: x[1],
+                                                                        reverse=True))
+        if not is_offline:
             edit_tags = input('Do you wish to remove all tags? (Y/N) ').lower()
             if edit_tags == 'y':
                 for item_id in full_list:
                     instance.tags_clear(item_id)
                 instance.commit()
-        else:
-            print("None of the articles have tags!")
+    else:
+        print("None of the articles have tags!")
 
 
 def load_articles_from_disk():
@@ -468,6 +468,7 @@ def load_articles_from_disk():
         with open('article_list', 'rb') as fin:
             try:
                 sync_and_articles = pickle.loads(fin.read())
+                print(f"{len(sync_and_articles[1])} items loaded from disk.")
             except EOFError:
                 no_load()
                 return
@@ -482,32 +483,38 @@ def save_articles_to_disk(article_dict, last_sync_date):
         pickle.dump([last_sync_date, article_dict], fout)
 
 
-def check_sync_date(sync_date, length_of_current_list, ret_val):
+def check_sync_date(sync_date, length_of_current_list, ret_val, is_offline):
     resync = ''
-    if ret_val == 'all':
-        resync_string = ('By default, we will show you all saved articles. Do you want to update ALL articles?\n'
-                         'WARNING: This will potentially take a long time, as it will retrieve ALL articles from '
-                         'Pocket. (Y/N) ')
-    elif datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
-        resync_string = ('The saved list of articles has not been synchronized in two weeks. '
-                         'Would you like to update the saved list? (Y/N) ')
-    elif type(ret_val) == int and ret_val > length_of_current_list:
-        resync_string = (f'You are requesting more articles than the {length_of_current_list} that are currently saved.'
-                         ' Would you like to update the saved list? (Y/N) ')
-    else:
-        resync_string = ('The saved list of articles has been synchronized in the past two weeks. '
-                         'Would you like to update the saved list anyway? (Y/N) ')
-    while not resync:
-        resync = input(resync_string).lower()
-        if resync == 'y':
-            return True
-        elif resync == 'n':
-            return False
+    if not is_offline:
+        if ret_val == 'all':
+            resync_string = ('By default, we will show you all saved articles. Do you want to update ALL articles?\n'
+                             'WARNING: This will potentially take a long time, as it will retrieve ALL articles from '
+                             'Pocket. (Y/N) ')
+        elif datetime.datetime.fromtimestamp(int(sync_date)) < datetime.datetime.now() - datetime.timedelta(days=14):
+            resync_string = ('The saved list of articles has not been synchronized in two weeks. '
+                             'Would you like to update the saved list? (Y/N) ')
+        elif type(ret_val) == int and ret_val > length_of_current_list:
+            resync_string = (f"You are requesting more articles than the {length_of_current_list} that are currently saved."
+                             ' Would you like to update the saved list? (Y/N) ')
         else:
-            if not try_again():
-                exit_strategy()
+            resync_string = ('The saved list of articles has been synchronized in the past two weeks. '
+                             'Would you like to update the saved list anyway? (Y/N) ')
+
+        while not resync:
+            resync = input(resync_string).lower()
+            if resync == 'y':
+                return True
+            elif resync == 'n':
+                return False
             else:
-                resync = ''
+                if not try_again():
+                    exit_strategy()
+                else:
+                    resync = ''
+    else:
+        print('You are offline, unable to sync at this time.')
+        print(f"The last synchronization was {datetime.datetime.fromtimestamp(int(sync_date))}.")
+        return False
 
 
 def prepare_articles_dict(items):
@@ -541,7 +548,7 @@ def article_retrieval_quantity(sort_type):
     arts_to_retrieve = ''
     while not arts_to_retrieve:
         arts_to_retrieve = input(f"How many of the {sort_type} articles would you like to get? "
-                                 "(Default is all, 0 exits the program) ").lower()
+                                 '(Default is all, 0 exits the program) ').lower()
         if arts_to_retrieve == '' or arts_to_retrieve == 'all':
             return 'all'
         else:
@@ -555,10 +562,13 @@ def article_retrieval_quantity(sort_type):
                     arts_to_retrieve = ''
 
 
-def retrieve_articles(instance):
+def retrieve_articles(instance, is_offline):
     get_all = False
     art_dict = None
     items_list = load_articles_from_disk()
+    if not items_list and is_offline:
+        print('Unfortunately there are no saved articles to retrieve.')
+        exit_strategy()
     ret_args = {'detailType': 'complete'}
     ret_args = get_starting_side(ret_args)
     art_count = article_retrieval_quantity(ret_args['sort'])
@@ -581,14 +591,14 @@ def retrieve_articles(instance):
             ret_args['offset'] += ret_args['count']
             length = len(items_list[-1]['list'])
     elif not get_all and items_list:
-        if check_sync_date(items_list[0], len(items_list[1]), art_count):
+        if check_sync_date(items_list[0], len(items_list[1]), art_count, is_offline):
             if ret_args['sort'] != 'oldest':
                 ret_args['since'] = items_list[0]
             items_list = instance.get(**ret_args)
         else:
             art_dict = {k: v for i, (k, v) in enumerate(items_list[1].items()) if i < art_count}
     else:
-        if check_sync_date(items_list[0], len(items_list[1]), art_count):
+        if check_sync_date(items_list[0], len(items_list[1]), art_count, is_offline):
             if ret_args['sort'] != 'oldest':
                 ret_args['since'] = items_list[0]
             items_list = []
@@ -598,8 +608,7 @@ def retrieve_articles(instance):
                 length = len(items_list[-1]['list'])
 
     try:
-        int(items_list[0])
-        ret_time = items_list[0]
+        ret_time = int(items_list[0])
         if not art_dict:
             art_dict = items_list[1]
     except TypeError:
@@ -609,11 +618,21 @@ def retrieve_articles(instance):
 
 
 def main():
+    offline = False
     parser = create_arg_parser()
     args = parser.parse_args()
-    pocket_instance = pocket_authenticate(args.api_key)
+    try:
+        pocket_instance = pocket_authenticate(args.api_key)
+    except ConnectionError:
+        while cont not in ['y', 'n']:
+            cont = input('There has been a connection error. Would you like to continue with only the saved articles? (Y/N) ').lower()
+            if cont == 'n':
+                exit_strategy()
+            elif cont != 'y':
+                print('That is not a valid option.')
+            offline = True
 
-    retrieval_time, master_article_dictionary = retrieve_articles(pocket_instance)
+    retrieval_time, master_article_dictionary = retrieve_articles(pocket_instance, offline)
 
     # Option to check for and delete duplicates
     check_dupes = input('Would you like to check for and delete any duplicate articles? '
@@ -623,23 +642,35 @@ def main():
         master_article_dictionary = del_dupes(master_article_dictionary, pocket_instance)
 
     save_articles_to_disk(master_article_dictionary, retrieval_time)
-
-    while True:
-        choice = input("What would you like to do ([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ").lower()
-        if choice == "e":
-            exit_strategy()
-        elif choice == 'a':
-            add_items(pocket_instance)
-        elif choice == 'd':
-            delete_items(pocket_instance, master_article_dictionary)
-        elif choice == 'v':
-            view_items(master_article_dictionary)
-        elif choice == 't':
-            tags_editing(pocket_instance, master_article_dictionary)
-        else:
-            if not try_again():
+    if not offline:
+        while True:
+            choice = input('What would you like to do ([A]dd/[D]elete/[V]iew/[T]ags/[E]xit)? ').lower()
+            if choice == 'e':
                 exit_strategy()
-
+            elif choice == 'a':
+                add_items(pocket_instance)
+            elif choice == 'd':
+                delete_items(pocket_instance, master_article_dictionary)
+            elif choice == 'v':
+                view_items(master_article_dictionary)
+            elif choice == 't':
+                tags_editing(pocket_instance, master_article_dictionary)
+            else:
+                if not try_again():
+                    exit_strategy()
+    else:
+        print('You are in offline mode, functionality is limited.\n')
+        while True:
+            choice = input('What would you like to do ([V]iew/[T]ags/[E]xit)? ').lower()
+            if choice == 'e':
+                exit_strategy()
+            elif choice == 'v':
+                view_items(master_article_dictionary)
+            elif choice == 't':
+                tags_editing(pocket_instance, master_article_dictionary, offline)
+            else:
+                if not try_again():
+                    exit_strategy()
 
 if __name__ == '__main__':
     main()
