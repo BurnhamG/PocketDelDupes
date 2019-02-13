@@ -357,12 +357,12 @@ def validate_url(link):
         return False
 
 
-def get_article_url(id_url_dict, url, link):
+def get_article_url(id_url_dict, url):
     for article in id_url_dict:
-        if id_url_dict[article]['resolved_url'] == url or id_url_dict[article]['resolved_url'] == link:
+        if id_url_dict[article]['resolved_url'] == url:
             return article
         else:
-            print(str(link) +
+            print(str(url) +
                   ' was not found in the list. '
                   'Nothing related to this item will be modified.')
             return False
@@ -402,9 +402,9 @@ def delete_items(instance, id_url_dict):
             return
         elif delete_list[0] != -1:
             for item in delete_list:
-                url, link = validate_url(item)
+                url = validate_url(item)
                 if url:
-                    item_id = get_article_url(id_url_dict, url, link)
+                    item_id = get_article_url(id_url_dict, url)
                     if item_id:
                         instance.delete(item_id)
                         commit = True
@@ -608,7 +608,8 @@ def retrieve_articles(instance, is_offline):
                 length = len(items_list[-1]['list'])
 
     try:
-        ret_time = int(items_list[0])
+        int(items_list[0])
+        ret_time = items_list[0]
         if not art_dict:
             art_dict = items_list[1]
     except TypeError:
