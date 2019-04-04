@@ -209,7 +209,7 @@ def items_to_manipulate():
         if items[-4:].lower() == '.txt':
             try:
                 with open(os.path.normcase(items), "r", encoding='utf-8') as al:
-                    manip = [line.rstrip() for line in al]
+                    manip = [line.strip() for line in al]
             except IOError:
                 print('That file does not exist.')
                 if not try_again():
@@ -343,6 +343,7 @@ def display_items(articles_in_account):
 
 
 def validate_url(link):
+    link = link.strip()
     if not link.startswith('http') and not link.startswith('//'):
         if link.startswith('/'):
             link_fixed = f"/{link}"
@@ -378,15 +379,16 @@ def add_items(instance):
         elif add_list[0] != -1:
             print('Processing items...')
             for item in add_list:
-                url = validate_url(item)
-                if url:
-                    instance.bulk_add(url)
+                art_url = validate_url(item)
+                if art_url:
+                    instance.bulk_add(url=art_url)
                     valid_count += 1
                 else:
                     print(f"{item} is not a valid URL, "
                           "and will be disregarded.")
             if valid_count > 0:
                 instance.commit()
+                print(f"{valid_count} items successfully added!")
                 return
             else:
                 if not try_again():
@@ -494,8 +496,9 @@ def check_sync_date(sync_date, length_of_current_list, ret_val, is_offline):
             resync_string = ('The saved list of articles has not been synchronized in two weeks. '
                              'Would you like to update the saved list? (Y/N) ')
         elif type(ret_val) == int and ret_val > length_of_current_list:
-            resync_string = (f"You are requesting more articles than the {length_of_current_list} that are currently saved."
-                             ' Would you like to update the saved list? (Y/N) ')
+            resync_string = (
+                f"You are requesting more articles than the {length_of_current_list} that are currently saved."
+                ' Would you like to update the saved list? (Y/N) ')
         else:
             resync_string = ('The saved list of articles has been synchronized in the past two weeks. '
                              'Would you like to update the saved list anyway? (Y/N) ')
@@ -626,7 +629,8 @@ def main():
         pocket_instance = pocket_authenticate(args.api_key)
     except ConnectionError:
         while cont not in ['y', 'n']:
-            cont = input('There has been a connection error. Would you like to continue with only the saved articles? (Y/N) ').lower()
+            cont = input(
+                'There has been a connection error. Would you like to continue with only the saved articles? (Y/N) ').lower()
             if cont == 'n':
                 exit_strategy()
             elif cont != 'y':
@@ -672,6 +676,7 @@ def main():
             else:
                 if not try_again():
                     exit_strategy()
+
 
 if __name__ == '__main__':
     main()
