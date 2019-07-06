@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+# TODO: Save articles to SQLite database rather than a dictionary
 import argparse
 import datetime
 import os
@@ -64,7 +65,7 @@ def output_bad(list_of_bad, save_bad=False, print_bad=False):
 def url_test(art_list):
     """Tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
     var_error = 0
-    bad_list = []
+    var_error = 0
     option = ''
     to_continue = ''
     to_print = False
