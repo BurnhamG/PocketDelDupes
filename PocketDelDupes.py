@@ -192,6 +192,13 @@ def clean_db(raw_article_list):
         yield article
 
 
+def create_article_list(con, raw_list):
+    article_list = []
+    for a in clean_db(raw_list):
+        article_list.append(a)
+    add_to_db(con, article_list)
+
+
 def del_dupes(masterdict, instance):
     """Removes duplicate items from the user's list."""
     ids_to_delete = []
