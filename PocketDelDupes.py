@@ -6,6 +6,8 @@ import datetime
 import os
 import pickle
 import re
+import sqlite3
+from sqlite3 import Error
 import webbrowser
 from urllib.parse import urlparse
 
@@ -64,7 +66,7 @@ def output_bad(list_of_bad, save_bad=False, print_bad=False):
 
 def url_test(art_list):
     """Tests for invalid resolved urls and lists them for the user to fix, if the user so desires."""
-    var_error = 0
+    bad_list = []
     var_error = 0
     option = ''
     to_continue = ''
@@ -119,18 +121,48 @@ def filterurl(url, char):
         return url
 
 
-def clean_db(raw_article_list):
-    """Returns only the article information and strips all of the extra social media info from each URL."""
-    masterdict = {}
-    # url_id_dict = {}
+def connect_db():
+    try:
+        con = sqlite3.connect('articles.db')
+    except Error:
+        print(Error)
+        raise SystemExit
+    return con
 
-    print(raw_article_list)
+
+def create_table(con):
+    cursor = con.cursor()
+    cursor.execute("""
+        CREATE TABLE if not exists articles (id integer PRIMARY KEY, item_id integer, resolved_id 
+        integer, given_url text, resolved_url text, given_title text, resolved_title text, favorite integer, 
+        status integer, time_added integer, time_updated integer, time_read integer, time_favorited integer, 
+        excerpt text, is_article integer, is_index integer, has_image integer, has_video integer, word_count integer, 
+        lang text, time_to_read integer, top_image_url text, authors text, image text, images text, 
+        listen_duration_estimate integer, tags text, authors text, images text, videos text)
+        """)
+    con.commit()
+    cursor.close()
+
+
+def add_to_db(con, arts):
+    cursor = con.cursor()
+    cursor.executemany("INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", arts)
+    cursor.close()
+
+
+def clean_db(raw_article_list):
+    """
+    Generator that returns only the article information and strips all of the extra social media info from each URL.
+    """
+    masterdict = {}
+    fields = ['item_id', 'resolved_id', 'given_url', 'resolved_url', 'given_title', 'resolved_title', 'favorite',
+              'status', 'time_added', 'time_updated', 'time_read', 'time_favorited', 'excerpt', 'is_article',
+              'is_index', 'has_image', 'has_video', 'word_count', 'lang', 'time_to_read', 'top_image_url', 'authors',
+              'image', 'images', 'listen_duration_estimate', 'tags', 'authors', 'images', 'videos']
+
+    # print(raw_article_list)
     for item in raw_article_list:
-        article_id = raw_article_list[item]['item_id']
-        article_time = raw_article_list[item]['time_added']
-        article_title = raw_article_list[item]['resolved_title']
         article_url = raw_article_list[item]['resolved_url']
-        word_count = raw_article_list[item]['word_count']
         try:
             article_tags = list(raw_article_list[item]['tags'].keys())
         except KeyError:
@@ -142,18 +174,22 @@ def clean_db(raw_article_list):
         article_url = filterurl(article_url, '?roi')
         article_url = filterurl(article_url, '?mc')
 
-        # article_url = filterurl(article_url, '#')
-        # url_id_dict[article_id] = article_url
-        masterdict[article_id] = {}
-        masterdict[article_id]['resolved_url'] = article_url
-        masterdict[article_id]['word_count'] = word_count
-        masterdict[article_id]['tags'] = article_tags
-        masterdict[article_id]['resolved_title'] = article_title
-        masterdict[article_id]['time_added'] = article_time
+        article = {}
+        for k in raw_article_list[item]:
+            if k == 'item_id':
+                pass
+            elif k == 'resolved_url':
+                article['resolved_url'] = article_url
+            elif k == 'tags':
+                article['tags'] = article_tags
+            else:
+                article[k] = raw_article_list[item][k]
 
-    print('\n' + str(len(masterdict)) +
-          " total articles retrieved from your Pocket list.\n")
-    return masterdict
+            for f in fields:
+                if f not in article.keys():
+                    article[f] = None
+
+        yield article
 
 
 def del_dupes(masterdict, instance):
@@ -619,6 +655,9 @@ def retrieve_articles(instance, is_offline):
     except TypeError:
         ret_time, art_dict = prepare_articles_dict(items_list)
 
+    print('\n' + str(len(items_list[1])) +
+          " total articles retrieved from your Pocket list.\n")
+
     return ret_time, art_dict
 
 
@@ -629,6 +668,7 @@ def main():
     try:
         pocket_instance = pocket_authenticate(args.api_key)
     except ConnectionError:
+        cont = None
         while cont not in ['y', 'n']:
             cont = input(
                 'There has been a connection error. Would you like to continue with only the saved articles? (Y/N) ').lower()
@@ -638,6 +678,7 @@ def main():
                 print('That is not a valid option.')
             offline = True
 
+    # TODO: Handle offline case better
     retrieval_time, master_article_dictionary = retrieve_articles(pocket_instance, offline)
 
     # Option to check for and delete duplicates

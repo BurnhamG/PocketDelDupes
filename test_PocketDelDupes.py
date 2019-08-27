@@ -545,14 +545,14 @@ class PocketConsoleTest(unittest.TestCase):
 
         mock_items.return_value = ["www.example.com"]
         PocketDelDupes.add_items(mock_instance)
-        mock_instance.bulk_add.assert_called_with('http://' + mock_items.return_value[0])
+        mock_instance.bulk_add.assert_called_with(url='http://' + mock_items.return_value[0])
         mock_instance.commit.assert_called()
 
         mock_instance.reset_mock()
 
         mock_items.return_value = ["//www.example.com"]
         PocketDelDupes.add_items(mock_instance)
-        mock_instance.bulk_add.assert_called_with('http:' + mock_items.return_value[0])
+        mock_instance.bulk_add.assert_called_with(url='http:' + mock_items.return_value[0])
         mock_instance.commit.assert_called()
 
         mock_instance.reset_mock()
