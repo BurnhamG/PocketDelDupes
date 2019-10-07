@@ -1,5 +1,6 @@
 atomicwrites==1.2.1
 attrs==18.2.0
+black
 certifi==2018.11.29
 chardet==3.0.4
 colorama==0.4.1
@@ -8,6 +9,7 @@ decorator==4.3.0
 idna==2.6
 more-itertools==5.0.0
 pluggy==0.8.1
+pre-commit
 pocket==0.3.6
 py==1.7.0
 pycodestyle==2.5.0
