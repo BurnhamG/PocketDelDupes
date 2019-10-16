@@ -6,8 +6,6 @@ import datetime
 import os
 import pickle
 import re
-import sqlite3
-from sqlite3 import Error
 import webbrowser
 from urllib.parse import urlparse
 
@@ -15,6 +13,8 @@ import validators
 
 # Site here: https://github.com/tapanpandita/pocket
 from pocket import Pocket
+
+import database as db
 
 
 def create_arg_parser():
@@ -40,6 +40,7 @@ def pocket_authenticate(con_key):
     # Wait for user to hit ENTER before proceeding
     input()
 
+    # TODO: Save this somewhere for future use
     access_token = Pocket.get_access_token(consumer_key=con_key, code=request_token)
 
     print("Got authenticated request token - " + request_token)
@@ -120,41 +121,7 @@ def filterurl(url, char):
         return url
 
 
-def connect_db():
-    try:
-        con = sqlite3.connect("articles.db")
-    except Error:
-        print(Error)
-        raise SystemExit
-    return con
-
-
-def create_table(con):
-    cursor = con.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE if not exists articles (id integer PRIMARY KEY, item_id integer, resolved_id 
-        integer, given_url text, resolved_url text, given_title text, resolved_title text, favorite integer, 
-        status integer, time_added integer, time_updated integer, time_read integer, time_favorited integer, 
-        excerpt text, is_article integer, is_index integer, has_image integer, has_video integer, word_count integer, 
-        lang text, time_to_read integer, top_image_url text, authors text, image text, images text, 
-        listen_duration_estimate integer, tags text, authors text, images text, videos text)
-        """
-    )
-    con.commit()
-    cursor.close()
-
-
-def add_to_db(con, arts):
-    cursor = con.cursor()
-    cursor.executemany(
-        "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        arts,
-    )
-    cursor.close()
-
-
-def clean_db(raw_article_list):
+def clean_arts(raw_article_list):
     """
     Generator that returns only the article information and strips all of the extra social media info from each URL.
     """
@@ -225,7 +192,7 @@ def clean_db(raw_article_list):
 
 def create_article_list(con, raw_list):
     article_list = []
-    for a in clean_db(raw_list):
+    for a in clean_arts(raw_list):
         article_list.append(a)
     add_to_db(con, article_list)
 
@@ -570,13 +537,10 @@ def tags_editing(instance, full_list, is_offline=False):
 
 
 def load_articles_from_disk():
-    def no_load():
+    if not os.path.exists("article_list"):
         print(
             "No previous sync detected - proceeding by retrieving articles from website."
         )
-
-    if not os.path.exists("article_list"):
-        no_load()
         return
     else:
         with open("article_list", "rb") as fin:
@@ -648,7 +612,7 @@ def prepare_articles_dict(items):
     retrieval_time = items[0]["since"]
     url_test(full_list)
     # Clean and parse data
-    cleaned_dict = clean_db(full_list)
+    cleaned_dict = clean_arts(full_list)
     return retrieval_time, cleaned_dict
 
 
@@ -694,7 +658,7 @@ def article_retrieval_quantity(sort_type):
 def retrieve_articles(instance, is_offline):
     get_all = False
     art_dict = None
-    items_list = load_articles_from_disk()
+    items_list = db.load_articles()
     if not items_list and is_offline:
         print("Unfortunately there are no saved articles to retrieve.")
         exit_strategy()
@@ -739,8 +703,7 @@ def retrieve_articles(instance, is_offline):
                 length = len(items_list[-1]["list"])
 
     try:
-        int(items_list[0])
-        ret_time = items_list[0]
+        ret_time = int(items_list[0])
         if not art_dict:
             art_dict = items_list[1]
     except TypeError:
