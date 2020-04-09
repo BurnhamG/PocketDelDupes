@@ -206,7 +206,7 @@ def items_to_manipulate():
                       'or provide the path of a text file with each item '
                       'on a separate line. Leave empty to return to the main menu. ')
         manip = []
-        if items[-4:].lower() == '.txt':
+        if validators.url(items.split(',')[0]) is not True:
             try:
                 with open(os.path.normcase(items), "r", encoding='utf-8') as al:
                     manip = [line.strip() for line in al]
