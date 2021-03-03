@@ -125,11 +125,14 @@ def clean_db(raw_article_list):
 
     print(raw_article_list)
     for item in raw_article_list:
-        article_id = raw_article_list[item]['item_id']
-        article_time = raw_article_list[item]['time_added']
-        article_title = raw_article_list[item]['resolved_title']
-        article_url = raw_article_list[item]['resolved_url']
-        word_count = raw_article_list[item]['word_count']
+        article_id = raw_article_list[item].get('item_id')
+        article_time = raw_article_list[item].get('time_added')
+        article_read_time = raw_article_list[item].get('time_read')
+        article_title = raw_article_list[item].get('resolved_title')
+        if article_title == None or article_title == '':
+            article_title = raw_article_list[item].get('given_title')
+        article_url = raw_article_list[item].get('resolved_url',raw_article_list[item].get('given_url'))
+        word_count = raw_article_list[item].get('word_count')
         try:
             article_tags = list(raw_article_list[item]['tags'].keys())
         except KeyError:
@@ -149,6 +152,7 @@ def clean_db(raw_article_list):
         masterdict[article_id]['tags'] = article_tags
         masterdict[article_id]['resolved_title'] = article_title
         masterdict[article_id]['time_added'] = article_time
+        masterdict[article_id]['time_read'] = article_read_time
 
     print('\n' + str(len(masterdict)) +
           " total articles retrieved from your Pocket list.\n")
@@ -572,7 +576,7 @@ def retrieve_articles(instance, is_offline):
     if not items_list and is_offline:
         print('Unfortunately there are no saved articles to retrieve.')
         exit_strategy()
-    ret_args = {'detailType': 'complete'}
+    ret_args = {'state': "archive", 'detailType': 'complete'}
     ret_args = get_starting_side(ret_args)
     art_count = article_retrieval_quantity(ret_args['sort'])
     if art_count == 0:
